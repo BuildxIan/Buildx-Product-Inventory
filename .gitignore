@@ -1,0 +1,15 @@
+node_modules
+.next
+.env
+.env.local
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+
+# Vercel
+.vercel
+
+# Local agent / browser tooling artifacts
+.agents/
+.playwright-cli/
+*.log

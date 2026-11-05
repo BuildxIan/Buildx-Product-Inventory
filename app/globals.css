@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink antialiased;
+  }
+
+  ::selection {
+    background-color: #112538;
+    color: #ffffff;
+  }
+
+  /* Slimmer, quieter scrollbars to match the BuildX surface treatment. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #c9d3de transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #c9d3de;
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded px-3 py-2 text-sm font-semibold leading-none transition duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  /* Navy is the primary action colour on buildx.ph; orange is reserved for the main CTA. */
+  .btn-primary {
+    @apply btn bg-ink text-white shadow-[0_1px_0_0_#0B1A28,0_3px_8px_-3px_rgba(17,37,56,0.45)] hover:bg-ink-deep active:translate-y-px active:shadow-none;
+  }
+  .btn-accent {
+    @apply btn bg-accent text-white shadow-[0_1px_0_0_#B84A00,0_3px_8px_-3px_rgba(248,100,0,0.45)] hover:bg-accent-hover active:translate-y-px active:shadow-none;
+  }
+  .btn-ghost {
+    @apply btn border border-ink-line bg-white text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink-mist hover:bg-canvas active:translate-y-px active:shadow-none;
+  }
+  .btn-outline {
+    @apply btn border border-ink/25 bg-white text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink hover:bg-canvas active:translate-y-px active:shadow-none;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white shadow-[0_1px_0_0_#7A1710,0_3px_8px_-3px_rgba(180,35,24,0.45)] hover:bg-danger-hover active:translate-y-px active:shadow-none;
+  }
+  .btn-danger-ghost {
+    @apply btn border border-danger/25 bg-white text-danger shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-danger/50 hover:bg-danger-soft active:translate-y-px active:shadow-none;
+  }
+
+  .input {
+    @apply w-full rounded border border-ink-line bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-ink focus:ring-2 focus:ring-ink/10;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded text-ink-soft transition-colors hover:bg-surface-alt hover:text-ink disabled:opacity-40;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.09em] text-ink-soft;
+  }
+
+  /* Small uppercase category / eyebrow text used on cards and headers. */
+  .eyebrow {
+    @apply text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-accent-deep;
+  }
+
+  .card-surface {
+    @apply rounded-md border border-ink-line bg-white;
+  }
+
+  /* Cursor-driven 3D tilt. Desktop pointers only; flat for touch and reduced motion. */
+  .tilt-card {
+    transform-style: preserve-3d;
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+    transition:
+      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      box-shadow 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      border-color 180ms ease;
+  }
+  .tilt-card:hover {
+    transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-6px);
+  }
+
+  @media (hover: none), (prefers-reduced-motion: reduce) {
+    .tilt-card,
+    .tilt-card:hover {
+      transform: none;
+      transition:
+        box-shadow 180ms ease,
+        border-color 180ms ease;
+    }
+  }
+}
