@@ -1,9 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ImagePlus, Plus, Trash2, X } from "lucide-react";
 import Modal from "./Modal";
 import CategoryModal from "./CategoryModal";
+import ShopModal from "./ShopModal";
+import ShopSelect from "./ShopSelect";
+import ShopDeleteDialog from "./ShopDeleteDialog";
 import type { Category, Product, ProductImage, Shop } from "@/lib/types";
 import { imageUrl } from "@/lib/supabase";
 
@@ -15,7 +18,6 @@ export type FormValues = {
   code: string;
   category_id: string | null;
   shop_id: string | null;
-  newShopName: string;
   description: string;
   notes: string;
   variants: { label: string; color_hex: string | null; price: number | null }[];
@@ -27,25 +29,33 @@ type Props = {
   product?: Product; // undefined = adding
   categories: Category[];
   shops: Shop[];
+  /** Product count per shop, so the delete dialog can explain the impact. */
+  shopCounts: Record<string, number>;
   defaultCategoryId: string | null;
   /** False until the `code` column exists in the database. */
   codeEnabled: boolean;
   /** Creates a category (uppercased, duplicate-checked) and returns it. */
   onAddCategory: (name: string) => Promise<Category | null>;
+  /** Creates a shop (trimmed, duplicate-checked) and returns it. */
+  onAddShop: (name: string) => Promise<Shop | null>;
+  /** Deletes a shop after moving its products to `reassignTo` (null = none). */
+  onDeleteShop: (shop: Shop, reassignTo: string | null) => Promise<void>;
   onSubmit: (values: FormValues) => Promise<void>;
   onClose: () => void;
 };
 
-const NEW_SHOP = "__new__";
 const NEW_CATEGORY = "__new_category__";
 
 export default function ProductForm({
   product,
   categories,
   shops,
+  shopCounts,
   defaultCategoryId,
   codeEnabled,
   onAddCategory,
+  onAddShop,
+  onDeleteShop,
   onSubmit,
   onClose,
 }: Props) {
@@ -54,10 +64,11 @@ export default function ProductForm({
   const [code, setCode] = useState(product?.code ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id ?? defaultCategoryId ?? "");
   const [shopChoice, setShopChoice] = useState(product?.shop_id ?? "");
-  const [newShopName, setNewShopName] = useState("");
   const [description, setDescription] = useState(product?.description ?? "");
   const [notes, setNotes] = useState(product?.notes ?? "");
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [showNewShop, setShowNewShop] = useState(false);
+  const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [variants, setVariants] = useState<VariantInput[]>(
     [...(product?.product_variants ?? [])]
       .sort((a, b) => a.position - b.position)
@@ -76,6 +87,11 @@ export default function ProductForm({
 
   const previews = useMemo(() => newFiles.map((f) => URL.createObjectURL(f)), [newFiles]);
 
+  // A shop deleted from the dropdown can't stay selected in this form.
+  useEffect(() => {
+    if (shopChoice && !shops.some((s) => s.id === shopChoice)) setShopChoice("");
+  }, [shops, shopChoice]);
+
   function updateVariant(i: number, patch: Partial<VariantInput>) {
     setVariants((vs) => vs.map((v, idx) => (idx === i ? { ...v, ...patch } : v)));
   }
@@ -86,7 +102,6 @@ export default function ProductForm({
     const priceNum = Number(price);
     if (!name.trim()) return setError("Product name is required.");
     if (!Number.isFinite(priceNum) || priceNum < 0) return setError("Enter a valid price.");
-    if (shopChoice === NEW_SHOP && !newShopName.trim()) return setError("Enter the new shop name.");
 
     setBusy(true);
     try {
@@ -95,8 +110,7 @@ export default function ProductForm({
         price: priceNum,
         code: code.trim(),
         category_id: categoryId || null,
-        shop_id: shopChoice && shopChoice !== NEW_SHOP ? shopChoice : null,
-        newShopName: shopChoice === NEW_SHOP ? newShopName.trim() : "",
+        shop_id: shopChoice || null,
         description: description.trim(),
         notes: notes.trim(),
         variants: variants
@@ -178,22 +192,15 @@ export default function ProductForm({
           </div>
           <div>
             <label className="label">Shop</label>
-            <select className="input" value={shopChoice} onChange={(e) => setShopChoice(e.target.value)}>
-              <option value="">No shop</option>
-              {shops.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-              <option value={NEW_SHOP}>+ Add new shop...</option>
-            </select>
+            <ShopSelect
+              shops={shops}
+              value={shopChoice}
+              onChange={setShopChoice}
+              onDelete={setShopToDelete}
+              onAdd={() => setShowNewShop(true)}
+              disabled={busy}
+            />
           </div>
-          {shopChoice === NEW_SHOP && (
-            <div className="sm:col-span-2">
-              <label className="label">New shop name</label>
-              <input className="input" value={newShopName} onChange={(e) => setNewShopName(e.target.value)} />
-            </div>
-          )}
         </div>
 
         {/* Photos */}
@@ -338,6 +345,32 @@ export default function ProductForm({
           </button>
         </div>
       </form>
+
+      {/* Same dialogs the header uses, so shop rules live in one place. */}
+      {showNewShop && (
+        <ShopModal
+          shops={shops}
+          onSave={async (name) => {
+            const created = await onAddShop(name);
+            if (created) setShopChoice(created.id);
+            return created;
+          }}
+          onClose={() => setShowNewShop(false)}
+        />
+      )}
+
+      {shopToDelete && (
+        <ShopDeleteDialog
+          shop={shopToDelete}
+          productCount={shopCounts[shopToDelete.id] ?? 0}
+          otherShops={shops.filter((s) => s.id !== shopToDelete.id)}
+          onConfirm={async (reassignTo) => {
+            await onDeleteShop(shopToDelete, reassignTo);
+            setShopToDelete(null);
+          }}
+          onCancel={() => setShopToDelete(null)}
+        />
+      )}
 
       {/* Same dialog the sidebar uses, so category rules live in one place. */}
       {showNewCategory && (

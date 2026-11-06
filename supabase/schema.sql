@@ -33,9 +33,13 @@ alter table public.products add column if not exists code text;
 create table if not exists public.product_images (
   id uuid primary key default gen_random_uuid(),
   product_id uuid not null references public.products(id) on delete cascade,
-  path text not null,            -- path inside the "product-images" bucket
+  path text not null,            -- optimised copy inside the "product-images" bucket
+  original_path text,            -- untouched upload, when stored (see migration 002)
   position int not null default 0
 );
+
+-- Existing databases created before original-image preservation.
+alter table public.product_images add column if not exists original_path text;
 
 create table if not exists public.product_variants (
   id uuid primary key default gen_random_uuid(),

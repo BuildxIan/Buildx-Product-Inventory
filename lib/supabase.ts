@@ -1,21 +1,12 @@
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
+import { BUCKET, SUPABASE_ANON_KEY, SUPABASE_URL, isConfigured } from "./config";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-
-export const isConfigured = Boolean(url && anon);
-
-export const supabase = createClient(
-  url || "https://placeholder.supabase.co",
-  anon || "placeholder-key"
+// The browser client stores the session in cookies (not localStorage) so the
+// server — middleware and server components — can validate it on every request.
+// That is what makes the dashboard genuinely protected rather than just hidden.
+export const supabase = createBrowserClient(
+  SUPABASE_URL || "https://placeholder.supabase.co",
+  SUPABASE_ANON_KEY || "placeholder-key"
 );
 
-export const BUCKET = "product-images";
-
-export function imageUrl(path: string): string {
-  return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-}
-
-const domain = process.env.NEXT_PUBLIC_LOGIN_EMAIL_DOMAIN || "catalog.app";
-export const usernameToEmail = (username: string) =>
-  `${username.trim().toLowerCase()}@${domain}`;
+export { BUCKET, isConfigured, publicImageUrl as imageUrl, usernameToEmail } from "./config";

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Download, Pencil, Trash2 } from "lucide-react";
 import Modal from "./Modal";
+import DownloadDialog from "./DownloadDialog";
 import type { Product, Shop, Category } from "@/lib/types";
 import { imageUrl } from "@/lib/supabase";
 import { formatPeso } from "@/lib/format";
@@ -47,6 +48,7 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
   const images = [...product.product_images].sort((a, b) => a.position - b.position);
   const variants = [...product.product_variants].sort((a, b) => a.position - b.position);
   const [idx, setIdx] = useState(0);
+  const [showDownload, setShowDownload] = useState(false);
 
   return (
     <Modal onClose={onClose} wide mobileFullScreen>
@@ -64,6 +66,16 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-ink-faint">No photo</div>
             )}
+
+            {/* Download sits opposite the close button so both stay reachable on phones. */}
+            <button
+              className="absolute left-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink-line bg-white/95 text-ink-soft shadow-panel transition-colors hover:bg-white hover:text-ink sm:h-9 sm:w-9"
+              onClick={() => setShowDownload(true)}
+              aria-label="Download photos and product details"
+              title="Download"
+            >
+              <Download size={17} />
+            </button>
           </div>
           {images.length > 1 && (
             <div className="flex gap-2 overflow-x-auto px-3 pb-3">
@@ -156,6 +168,17 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
           )}
         </div>
       </div>
+
+      {showDownload && (
+        <DownloadDialog
+          product={product}
+          categoryName={category?.name}
+          shopName={shop?.name}
+          // The gallery's current index, not the stored cover photo.
+          selectedImageId={images[idx]?.id}
+          onClose={() => setShowDownload(false)}
+        />
+      )}
     </Modal>
   );
 }

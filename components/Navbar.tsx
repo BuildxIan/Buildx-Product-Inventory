@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronDown, LogIn, LogOut, Plus, Search, Trash2, X } from "lucide-react";
+import { LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import type { Shop } from "@/lib/types";
+import ShopFilter from "./ShopFilter";
 
 export type Mode = "edit" | "delete" | null;
 
@@ -11,13 +12,18 @@ type Props = {
   /** Category the search is limited to (null = all products). */
   searchScope?: string | null;
   shops: Shop[];
+  /** Product count per shop, used inside the shop dropdown. */
+  shopCounts: Record<string, number>;
+  /** Total product count, shown next to "All shops". */
+  totalProducts: number;
   shopFilter: string;
   onShopFilter: (id: string) => void;
+  onDeleteShop: (shop: Shop) => void;
+  onAddShop: () => void;
   mode: Mode;
   onMode: (m: Mode) => void;
   onAdd: () => void;
   isAdmin: boolean;
-  onLogin: () => void;
   onLogout: () => void;
 };
 
@@ -26,24 +32,35 @@ export default function Navbar({
   onQuery,
   searchScope,
   shops,
+  shopCounts,
+  totalProducts,
   shopFilter,
   onShopFilter,
+  onDeleteShop,
+  onAddShop,
   mode,
   onMode,
   onAdd,
   isAdmin,
-  onLogin,
   onLogout,
 }: Props) {
-  // Not logged in: the action buttons ask you to log in first.
-  const guard = (fn: () => void) => () => (isAdmin ? fn() : onLogin());
+  // Every visitor is signed in (see middleware), so the only guard left is for
+  // the brief moment before the session state settles.
+  const guard = (fn: () => void) => () => {
+    if (isAdmin) fn();
+  };
   const searchLabel = searchScope ? `Search in ${searchScope}...` : "Search all products...";
 
-  const shopOptions = shops.map((s) => (
-    <option key={s.id} value={s.id}>
-      {s.name}
-    </option>
-  ));
+  const shopFilterProps = {
+    shops,
+    counts: shopCounts,
+    total: totalProducts,
+    value: shopFilter,
+    onChange: onShopFilter,
+    isAdmin,
+    onDelete: onDeleteShop,
+    onAdd: onAddShop,
+  };
 
   return (
     <header className="sticky top-0 z-20 border-b border-ink-line bg-white shadow-[0_2px_10px_-8px_rgba(17,37,56,0.45)]">
@@ -71,20 +88,8 @@ export default function Navbar({
           )}
         </div>
 
-        <div className="relative hidden shrink-0 lg:block">
-          <select
-            className="h-10 w-40 appearance-none rounded border border-ink-line bg-white pl-3 pr-8 text-sm text-ink outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/10 lg:h-11 lg:w-48 lg:text-[15px]"
-            value={shopFilter}
-            onChange={(e) => onShopFilter(e.target.value)}
-            aria-label="Filter by shop"
-          >
-            <option value="">All shops</option>
-            {shopOptions}
-          </select>
-          <ChevronDown
-            size={15}
-            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
-          />
+        <div className="hidden w-48 shrink-0 lg:block">
+          <ShopFilter {...shopFilterProps} />
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 lg:gap-2">
@@ -108,47 +113,21 @@ export default function Navbar({
           >
             <Trash2 size={17} />
           </button>
-          {isAdmin ? (
-            <button
-              className="inline-flex h-9 items-center gap-1.5 rounded border border-ink-line bg-white px-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-canvas lg:h-11 lg:px-3.5 lg:text-sm"
-              onClick={onLogout}
-              aria-label="Logout"
-              title="Logout"
-            >
-              <LogOut size={16} />
-              <span>Logout</span>
-            </button>
-          ) : (
-            <button
-              className="inline-flex h-9 items-center gap-1.5 rounded border border-ink-line bg-white px-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-canvas lg:h-11 lg:px-3.5 lg:text-sm"
-              onClick={onLogin}
-              aria-label="Log in"
-              title="Log in"
-            >
-              <LogIn size={16} />
-              <span>Log in</span>
-            </button>
-          )}
+          <button
+            className="inline-flex h-9 items-center gap-1.5 rounded border border-ink-line bg-white px-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-canvas lg:h-11 lg:px-3.5 lg:text-sm"
+            onClick={onLogout}
+            aria-label="Log out"
+            title="Log out"
+          >
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 
       {/* Shop filter on phones and tablets */}
       <div className="px-2 pb-2 lg:hidden">
-        <div className="relative">
-          <select
-            className="h-9 w-full appearance-none rounded border border-ink-line bg-white pl-3 pr-8 text-sm text-ink outline-none transition focus:border-ink focus:ring-2 focus:ring-ink/10"
-            value={shopFilter}
-            onChange={(e) => onShopFilter(e.target.value)}
-            aria-label="Filter by shop"
-          >
-            <option value="">All shops</option>
-            {shopOptions}
-          </select>
-          <ChevronDown
-            size={15}
-            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-faint"
-          />
-        </div>
+        <ShopFilter {...shopFilterProps} />
       </div>
     </header>
   );

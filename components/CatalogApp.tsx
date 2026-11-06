@@ -1,10 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 import { LogOut, Menu, Package } from "lucide-react";
 import { supabase, isConfigured, BUCKET } from "@/lib/supabase";
-import { compressImage } from "@/lib/image";
+import { compressImage, originalExtension } from "@/lib/image";
 import type { Category, Product, Shop } from "@/lib/types";
 import Sidebar from "./Sidebar";
 import Navbar, { type Mode } from "./Navbar";
@@ -12,11 +11,12 @@ import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import ProductForm, { type FormValues } from "./ProductForm";
 import ConfirmDialog from "./ConfirmDialog";
-import LoginModal from "./LoginModal";
+import ShopModal from "./ShopModal";
+import ShopDeleteDialog from "./ShopDeleteDialog";
 
 type FormState = { product?: Product } | null;
 
-export default function CatalogApp() {
+export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -24,9 +24,12 @@ export default function CatalogApp() {
   const [loadError, setLoadError] = useState("");
   /** False until the optional `code` column exists, so the form can stay usable. */
   const [hasCodeColumn, setHasCodeColumn] = useState(true);
+  /** False until `product_images.original_path` exists — new uploads then skip it. */
+  const [hasOriginalColumn, setHasOriginalColumn] = useState(false);
 
-  const [session, setSession] = useState<Session | null>(null);
-  const isAdmin = Boolean(session);
+  // Seeded from the server render, so admin controls never flicker on load.
+  const [authed, setAuthed] = useState(initialAuthed);
+  const isAdmin = authed;
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
@@ -39,9 +42,10 @@ export default function CatalogApp() {
 
   const [openProductId, setOpenProductId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(null);
-  const [showLogin, setShowLogin] = useState(false);
   const [deleteTargets, setDeleteTargets] = useState<Product[] | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  const [showShopModal, setShowShopModal] = useState(false);
+  const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
@@ -56,11 +60,12 @@ export default function CatalogApp() {
     setSidebarOpen(window.innerWidth >= 768);
   }, []);
 
-  // Auth
+  // Auth — the server already checked this; we only track later changes
+  // (token refresh, sign-out in another tab).
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(({ data }) => setAuthed(Boolean(data.session)));
     const { data } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s);
+      setAuthed(Boolean(s));
       if (!s) {
         setMode(null);
         setSelected(new Set());
@@ -92,10 +97,22 @@ export default function CatalogApp() {
     if (err) setLoadError(err.message);
     else setLoadError("");
     const rows = ((p.data as unknown) as Product[]) ?? [];
-    // The product-code column is optional. select("*") simply omits it when the
-    // migration hasn't run, so read that straight off the rows instead of
-    // spending a second request on a probe that would only return a 400.
+
+    // Both extra columns are optional. select("*") omits a column that doesn't
+    // exist yet, so read them off the rows rather than spending a request on a
+    // probe that would only come back 400.
     if (rows.length > 0) setHasCodeColumn(Object.prototype.hasOwnProperty.call(rows[0], "code"));
+
+    const firstImage = rows.find((r) => r.product_images?.length)?.product_images[0];
+    if (firstImage) {
+      setHasOriginalColumn(Object.prototype.hasOwnProperty.call(firstImage, "original_path"));
+    } else if (rows.length > 0) {
+      // No photos anywhere yet, so there is no row to inspect. Ask once — a
+      // schema error means the migration hasn't run.
+      const probe = await supabase.from("product_images").select("original_path").limit(1);
+      setHasOriginalColumn(!probe.error);
+    }
+
     setCategories((c.data as Category[]) ?? []);
     setShops((s.data as Shop[]) ?? []);
     setProducts(rows);
@@ -106,12 +123,23 @@ export default function CatalogApp() {
     loadAll();
   }, [loadAll]);
 
+  // A deleted shop can't stay selected in the filter.
+  useEffect(() => {
+    if (shopFilter && !shops.some((s) => s.id === shopFilter)) setShopFilter("");
+  }, [shops, shopFilter]);
+
   const catName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const shopName = useMemo(() => new Map(shops.map((s) => [s.id, s.name])), [shops]);
 
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
     for (const p of products) if (p.category_id) m[p.category_id] = (m[p.category_id] ?? 0) + 1;
+    return m;
+  }, [products]);
+
+  const shopCounts = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const p of products) if (p.shop_id) m[p.shop_id] = (m[p.shop_id] ?? 0) + 1;
     return m;
   }, [products]);
 
@@ -180,23 +208,67 @@ export default function CatalogApp() {
     await loadAll();
   }
 
+  // ---------- Shops ----------
+  // One creation path for both the header dropdown and the product form. It
+  // only writes the row and reloads; selecting the result is the caller's job.
+  async function createShop(name: string): Promise<Shop | null> {
+    const clean = name.trim().replace(/\s+/g, " ");
+    const { data, error } = await supabase
+      .from("shops")
+      .insert({ name: clean })
+      .select("id, name")
+      .single();
+    if (error) throw new Error(error.message);
+
+    const created = (data as Shop) ?? null;
+    await loadAll();
+    if (created) flash(`Shop "${created.name}" added.`);
+    return created;
+  }
+
+  /** Header flow: after creating, filter the catalog by the new shop. */
+  async function addShopFromHeader(name: string): Promise<Shop | null> {
+    const created = await createShop(name);
+    if (created) setShopFilter(created.id);
+    return created;
+  }
+
+  /**
+   * Removes a shop without touching its products: they are explicitly moved to
+   * the chosen shop (or to "No shop") *before* the row is deleted, so nothing is
+   * left pointing at a missing shop. Callers close their own dialog.
+   */
+  async function deleteShop(shop: Shop, reassignTo: string | null) {
+    const affected = products.filter((p) => p.shop_id === shop.id);
+
+    if (affected.length > 0) {
+      const { error } = await supabase
+        .from("products")
+        .update({ shop_id: reassignTo })
+        .in(
+          "id",
+          affected.map((p) => p.id)
+        );
+      if (error) throw new Error(`Could not move the products: ${error.message}`);
+    }
+
+    const { error } = await supabase.from("shops").delete().eq("id", shop.id);
+    if (error) throw new Error(error.message);
+
+    if (shopFilter === shop.id) setShopFilter("");
+    await loadAll();
+    flash(
+      affected.length > 0
+        ? `Shop removed. ${affected.length} product${affected.length === 1 ? "" : "s"} moved.`
+        : `Shop "${shop.name}" removed.`
+    );
+  }
+
   // ---------- Products ----------
   async function saveProduct(values: FormValues, existing?: Product) {
-    // 1. shop
-    let shopId = values.shop_id;
-    if (values.newShopName) {
-      const found = shops.find((s) => s.name.toLowerCase() === values.newShopName.toLowerCase());
-      if (found) shopId = found.id;
-      else {
-        const { data, error } = await supabase
-          .from("shops")
-          .insert({ name: values.newShopName })
-          .select()
-          .single();
-        if (error) throw error;
-        shopId = data.id;
-      }
-    }
+    // The form now creates shops through the modal, so it only ever submits an
+    // existing shop id.
+    const shopId = values.shop_id;
 
     // 2. product row. `source_url` is intentionally not written: the listing link is
     // no longer part of the UI, and leaving it out keeps any stored value intact.
@@ -225,11 +297,17 @@ export default function CatalogApp() {
       const keptIds = new Set(values.keptImages.map((i) => i.id));
       const removed = existing.product_images.filter((i) => !keptIds.has(i.id));
       if (removed.length) {
-        await supabase.storage.from(BUCKET).remove(removed.map((i) => i.path));
+        // Take the original upload with it when there is one.
+        await supabase.storage
+          .from(BUCKET)
+          .remove(removed.flatMap((i) => (i.original_path ? [i.path, i.original_path] : [i.path])));
         const { error } = await supabase
           .from("product_images")
           .delete()
-          .in("id", removed.map((i) => i.id));
+          .in(
+            "id",
+            removed.map((i) => i.id)
+          );
         if (error) throw error;
       }
       for (let i = 0; i < values.keptImages.length; i++) {
@@ -241,16 +319,36 @@ export default function CatalogApp() {
     }
     const offset = values.keptImages.length;
     for (let i = 0; i < values.newFiles.length; i++) {
-      const blob = await compressImage(values.newFiles[i]);
-      const path = `${productId}/${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.jpg`;
-      const up = await supabase.storage.from(BUCKET).upload(path, blob, {
+      const file = values.newFiles[i];
+      const stamp = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+      // 1. Optimised copy — this is what the cards and the detail view load.
+      const display = await compressImage(file);
+      const displayPath = `${productId}/${stamp}.jpg`;
+      const up = await supabase.storage.from(BUCKET).upload(displayPath, display, {
         contentType: "image/jpeg",
         cacheControl: "31536000",
       });
       if (up.error) throw up.error;
-      const { error } = await supabase
-        .from("product_images")
-        .insert({ product_id: productId, path, position: offset + i });
+
+      // 2. The untouched upload, stored next to it. Only when the database has
+      //    the `original_path` column; existing rows and files are never touched.
+      let originalPath: string | null = null;
+      if (hasOriginalColumn) {
+        originalPath = `${productId}/${stamp}-original.${originalExtension(file)}`;
+        const upOriginal = await supabase.storage.from(BUCKET).upload(originalPath, file, {
+          contentType: file.type || "image/jpeg",
+          cacheControl: "31536000",
+        });
+        if (upOriginal.error) throw upOriginal.error;
+      }
+
+      const { error } = await supabase.from("product_images").insert({
+        product_id: productId,
+        path: displayPath,
+        position: offset + i,
+        ...(hasOriginalColumn ? { original_path: originalPath } : {}),
+      });
       if (error) throw error;
     }
 
@@ -282,7 +380,9 @@ export default function CatalogApp() {
     if (!deleteTargets) return;
     setBusy(true);
     try {
-      const paths = deleteTargets.flatMap((p) => p.product_images.map((i) => i.path));
+      const paths = deleteTargets.flatMap((p) =>
+        p.product_images.flatMap((i) => (i.original_path ? [i.path, i.original_path] : [i.path]))
+      );
       if (paths.length) await supabase.storage.from(BUCKET).remove(paths);
       const { error } = await supabase
         .from("products")
@@ -328,7 +428,8 @@ export default function CatalogApp() {
     await supabase.auth.signOut();
     setBusy(false);
     setConfirmLogout(false);
-    flash("Logged out.");
+    // Full navigation so the server re-runs the middleware with no session.
+    window.location.assign("/login");
   }
 
   // ---------- Render ----------
@@ -383,13 +484,16 @@ export default function CatalogApp() {
           onQuery={setQuery}
           searchScope={scopeName}
           shops={shops}
+          shopCounts={shopCounts}
+          totalProducts={products.length}
           shopFilter={shopFilter}
           onShopFilter={setShopFilter}
+          onDeleteShop={setShopToDelete}
+          onAddShop={() => setShowShopModal(true)}
           mode={mode}
           onMode={changeMode}
           onAdd={() => setForm({})}
           isAdmin={isAdmin}
-          onLogin={() => setShowLogin(true)}
           onLogout={() => setConfirmLogout(true)}
         />
 
@@ -526,9 +630,12 @@ export default function CatalogApp() {
           product={form.product}
           categories={categories}
           shops={shops}
+          shopCounts={shopCounts}
           defaultCategoryId={categoryId}
           codeEnabled={hasCodeColumn}
           onAddCategory={addCategory}
+          onAddShop={createShop}
+          onDeleteShop={deleteShop}
           onSubmit={(v) => saveProduct(v, form.product)}
           onClose={() => setForm(null)}
         />
@@ -562,7 +669,22 @@ export default function CatalogApp() {
         />
       )}
 
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {showShopModal && (
+        <ShopModal shops={shops} onSave={addShopFromHeader} onClose={() => setShowShopModal(false)} />
+      )}
+
+      {shopToDelete && (
+        <ShopDeleteDialog
+          shop={shopToDelete}
+          productCount={shopCounts[shopToDelete.id] ?? 0}
+          otherShops={shops.filter((s) => s.id !== shopToDelete.id)}
+          onConfirm={async (reassignTo) => {
+            await deleteShop(shopToDelete, reassignTo);
+            setShopToDelete(null);
+          }}
+          onCancel={() => setShopToDelete(null)}
+        />
+      )}
 
       {confirmLogout && (
         <ConfirmDialog

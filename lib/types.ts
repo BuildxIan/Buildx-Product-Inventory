@@ -1,7 +1,15 @@
 export type Category = { id: string; name: string; sort_order: number };
 export type Shop = { id: string; name: string };
 
-export type ProductImage = { id: string; product_id: string; path: string; position: number };
+export type ProductImage = {
+  id: string;
+  product_id: string;
+  /** Optimised copy used on the cards and in the detail view. */
+  path: string;
+  /** Untouched upload, when the database has the column and the file exists. */
+  original_path?: string | null;
+  position: number;
+};
 export type ProductVariant = {
   id: string;
   product_id: string;
