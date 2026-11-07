@@ -72,7 +72,7 @@ export default function DownloadDialog({ product, categoryName, shopName, select
     }
   }
 
-  const rowBase = "rounded-md border border-ink-line bg-white p-3.5 transition-colors";
+  const rowBase = "rounded-md border border-ink-line bg-surface p-3.5 transition-colors";
 
   return (
     <Modal onClose={onClose} title="Download" subtitle={product.name}>

@@ -70,23 +70,46 @@ export default function Sidebar({
     <>
       {/* Mobile backdrop */}
       {open && (
-        <div className="fixed inset-0 z-30 bg-ink/40 backdrop-blur-[2px] md:hidden" onClick={onClose} />
+        <div className="fixed inset-0 z-30 bg-black/45 backdrop-blur-[2px] md:hidden" onClick={onClose} />
       )}
 
       <aside
         id="category-sidebar"
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-ink-line bg-white shadow-rail transition-transform duration-200 md:static md:z-auto md:shrink-0 md:transition-[margin] lg:w-80 ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-col border-r border-ink-line bg-surface shadow-rail transition-transform duration-200 md:static md:z-auto md:shrink-0 md:transition-[margin] lg:w-80 ${
           open ? "translate-x-0 md:ml-0" : "-translate-x-full md:-ml-72 lg:-ml-80"
         }`}
       >
-        {/* Navy header, mirroring the "Product Categories" bar on buildx.ph */}
-        <div className="flex items-center gap-1 bg-ink px-2 py-3 lg:px-3 lg:py-3.5">
-          <h2 className="flex-1 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white lg:px-4 lg:text-base">
+        {/* Brand — the app title is the lockup, not text. Two assets swap with
+            the theme: the navy construction mark on light surfaces, the
+            white/orange transparent mark on dark ones. Both are transparent
+            PNGs, so they sit directly on the surface with no plate. */}
+        <div className="flex items-center border-b border-ink-line px-3 py-3 lg:px-4 lg:py-3.5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Light.png"
+            alt="BuildX Product Catalog"
+            width={1912}
+            height={648}
+            className="h-10 w-auto dark:hidden lg:h-11"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Dark.png"
+            alt="BuildX Product Catalog"
+            width={1958}
+            height={670}
+            className="hidden h-10 w-auto dark:block lg:h-11"
+          />
+        </div>
+
+        {/* Section label and the category tools that used to live in the bar. */}
+        <div className="flex items-center gap-1 border-b border-ink-line px-2 py-2 lg:px-3">
+          <h2 className="flex-1 px-1 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-soft lg:px-2 lg:text-xs">
             Categories
           </h2>
           {isAdmin && (
             <button
-              className="inline-flex h-8 w-8 items-center justify-center rounded text-ink-mist transition-colors hover:bg-white/10 hover:text-white lg:h-9 lg:w-9"
+              className="icon-btn h-8 w-8 lg:h-9 lg:w-9"
               onClick={() => setShowAdd(true)}
               aria-label="Add category"
               title="Add category"
@@ -96,8 +119,8 @@ export default function Sidebar({
           )}
           {isAdmin && (
             <button
-              className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-white/10 lg:h-9 lg:w-9 ${
-                editMode ? "bg-white/15 text-white" : "text-ink-mist hover:text-white"
+              className={`icon-btn h-8 w-8 lg:h-9 lg:w-9 ${
+                editMode ? "bg-ink/10 text-ink" : ""
               }`}
               onClick={() => {
                 setEditMode((v) => !v);
@@ -121,7 +144,7 @@ export default function Sidebar({
             className={`${rowBase} ${
               selectedId === null
                 ? "bg-surface-alt font-semibold text-ink"
-                : "text-ink-soft hover:bg-canvas hover:text-ink"
+                : "text-ink-soft hover:bg-surface-alt hover:text-ink"
             }`}
           >
             {selectedId === null && (
@@ -156,7 +179,7 @@ export default function Sidebar({
                       }}
                     />
                     <button
-                      className="icon-btn shrink-0 text-emerald-600"
+                      className="icon-btn shrink-0 text-emerald-600 dark:text-emerald-400"
                       onClick={() => submitRename(c.id)}
                       aria-label="Save"
                     >
@@ -175,7 +198,7 @@ export default function Sidebar({
                     className={`${rowBase} ${
                       selectedId === c.id
                         ? "bg-surface-alt text-ink"
-                        : "text-ink-soft hover:bg-canvas hover:text-ink"
+                        : "text-ink-soft hover:bg-surface-alt hover:text-ink"
                     }`}
                   >
                     {selectedId === c.id && (

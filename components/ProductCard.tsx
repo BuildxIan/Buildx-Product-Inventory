@@ -64,7 +64,7 @@ export default function ProductCard({
         onMouseMove={handleMove}
         onMouseLeave={handleLeave}
         onClick={onClick}
-        className={`tilt-card group relative flex h-full w-full flex-col overflow-hidden rounded-md border bg-white text-left shadow-card hover:z-10 ${
+        className={`tilt-card group relative flex h-full w-full flex-col overflow-hidden rounded-md border bg-surface text-left shadow-card hover:z-10 ${
           selected ? "border-accent ring-1 ring-accent" : "border-ink-line hover:border-ink/20 hover:shadow-lift"
         }`}
       >
@@ -85,7 +85,7 @@ export default function ProductCard({
           {selectMode && (
             <span
               className={`absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
-                selected ? "border-accent bg-accent text-white" : "border-white bg-ink/25"
+                selected ? "border-accent bg-accent text-white" : "border-white bg-black/35"
               }`}
             >
               {selected && <Check size={13} />}

@@ -69,7 +69,7 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
 
             {/* Download sits opposite the close button so both stay reachable on phones. */}
             <button
-              className="absolute left-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink-line bg-white/95 text-ink-soft shadow-panel transition-colors hover:bg-white hover:text-ink sm:h-9 sm:w-9"
+              className="absolute left-3 top-3 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border border-ink-line bg-surface/95 text-ink-soft shadow-panel transition-colors hover:bg-surface hover:text-ink sm:h-9 sm:w-9"
               onClick={() => setShowDownload(true)}
               aria-label="Download photos and product details"
               title="Download"
@@ -83,7 +83,7 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
                 <button
                   key={img.id}
                   onClick={() => setIdx(i)}
-                  className={`h-14 w-14 shrink-0 overflow-hidden rounded border bg-white transition ${
+                  className={`h-14 w-14 shrink-0 overflow-hidden rounded border bg-surface transition ${
                     i === idx ? "border-accent ring-1 ring-accent" : "border-ink-line hover:border-ink-mist"
                   }`}
                 >
@@ -122,7 +122,7 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
                 {variants.map((v) => (
                   <span
                     key={v.id}
-                    className="inline-flex items-center gap-1.5 rounded border border-ink-line bg-white px-2.5 py-1.5 text-[13px] text-ink"
+                    className="inline-flex items-center gap-1.5 rounded border border-ink-line bg-surface px-2.5 py-1.5 text-[13px] text-ink"
                   >
                     {v.color_hex && (
                       <span

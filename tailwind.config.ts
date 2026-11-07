@@ -4,34 +4,54 @@ import type { Config } from "tailwindcss";
  * Design tokens sampled from buildx.ph (live computed styles):
  * ink #112538, accent #F86400, canvas #F5F6F8, line #DDE2E8,
  * radii 6px (controls) / 8px (panels) / 12px (modals).
+ *
+ * Every colour is a CSS variable holding raw RGB channels, so the palette can
+ * be swapped wholesale by `.dark` in `app/globals.css` without touching a single
+ * component class name. Channels (not hex) keep Tailwind's `/opacity` modifiers
+ * working — `border-ink/25`, `bg-ink/45` and friends still resolve.
  */
 const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
         ink: {
-          DEFAULT: "#112538",
-          deep: "#0B1A28",
-          soft: "#4A5868",
-          faint: "#8B98A7",
-          line: "#DDE2E8",
-          mist: "#C9D3DE",
+          DEFAULT: "rgb(var(--ink) / <alpha-value>)",
+          deep: "rgb(var(--ink-deep) / <alpha-value>)",
+          soft: "rgb(var(--ink-soft) / <alpha-value>)",
+          faint: "rgb(var(--ink-faint) / <alpha-value>)",
+          line: "rgb(var(--ink-line) / <alpha-value>)",
+          mist: "rgb(var(--ink-mist) / <alpha-value>)",
         },
         accent: {
-          DEFAULT: "#F86400",
-          hover: "#E05A00",
-          deep: "#C2410C",
+          DEFAULT: "rgb(var(--accent) / <alpha-value>)",
+          hover: "rgb(var(--accent-hover) / <alpha-value>)",
+          deep: "rgb(var(--accent-deep) / <alpha-value>)",
         },
-        canvas: "#F5F6F8",
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
         surface: {
-          DEFAULT: "#FFFFFF",
-          alt: "#EEF1F4",
+          DEFAULT: "rgb(var(--surface) / <alpha-value>)",
+          alt: "rgb(var(--surface-alt) / <alpha-value>)",
+        },
+        /** The navy masthead / brand band. Stays dark in both themes. */
+        brand: {
+          DEFAULT: "rgb(var(--brand) / <alpha-value>)",
+          fg: "rgb(var(--brand-fg) / <alpha-value>)",
+        },
+        /** Primary filled button; inverts in dark mode so it stays readable. */
+        solid: {
+          DEFAULT: "rgb(var(--solid) / <alpha-value>)",
+          hover: "rgb(var(--solid-hover) / <alpha-value>)",
+          fg: "rgb(var(--solid-fg) / <alpha-value>)",
         },
         danger: {
-          DEFAULT: "#B42318",
-          hover: "#911B12",
-          soft: "#FEF3F2",
+          DEFAULT: "rgb(var(--danger) / <alpha-value>)",
+          hover: "rgb(var(--danger-hover) / <alpha-value>)",
+          soft: "rgb(var(--danger-soft) / <alpha-value>)",
+          /* Filled destructive button — kept dark enough for white text in both themes. */
+          solid: "rgb(var(--danger-solid) / <alpha-value>)",
+          "solid-hover": "rgb(var(--danger-solid-hover) / <alpha-value>)",
         },
       },
       fontFamily: {
@@ -46,13 +66,13 @@ const config: Config = {
         "2xl": "16px",
       },
       boxShadow: {
-        card: "inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(17, 37, 56, 0.06), 0 6px 14px -8px rgba(17, 37, 56, 0.20), 0 18px 32px -24px rgba(17, 37, 56, 0.30)",
-        lift: "inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 6px rgba(17, 37, 56, 0.07), 0 14px 26px -12px rgba(17, 37, 56, 0.26), 0 36px 60px -30px rgba(17, 37, 56, 0.38)",
-        modal:
-          "inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(11, 26, 40, 0.08), 0 18px 40px -16px rgba(11, 26, 40, 0.30), 0 50px 100px -40px rgba(11, 26, 40, 0.55)",
-        panel: "0 1px 3px rgba(17, 37, 56, 0.06)",
-        well: "inset 0 2px 6px rgba(17, 37, 56, 0.10), inset 0 0 0 1px rgba(17, 37, 56, 0.04)",
-        rail: "6px 0 24px -18px rgba(17, 37, 56, 0.35)",
+        card: "var(--shadow-card)",
+        lift: "var(--shadow-lift)",
+        modal: "var(--shadow-modal)",
+        panel: "var(--shadow-panel)",
+        well: "var(--shadow-well)",
+        rail: "var(--shadow-rail)",
+        solid: "var(--shadow-solid)",
       },
       keyframes: {
         rise: {

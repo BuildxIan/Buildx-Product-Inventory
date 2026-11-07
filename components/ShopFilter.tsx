@@ -62,7 +62,7 @@ export default function ShopFilter({
     <div ref={wrapRef} className="relative w-full shrink-0 lg:w-48">
       <button
         type="button"
-        className={`flex h-10 w-full items-center gap-2 rounded border bg-white pl-3 pr-8 text-left text-sm transition-colors lg:h-11 lg:text-[15px] ${
+        className={`flex h-10 w-full items-center gap-2 rounded border bg-surface pl-3 pr-8 text-left text-sm transition-colors lg:h-11 lg:text-[15px] ${
           open ? "border-ink ring-2 ring-ink/10" : "border-ink-line hover:border-ink-mist"
         } ${current ? "text-ink" : "text-ink-soft"}`}
         onClick={() => setOpen((v) => !v)}
@@ -82,7 +82,7 @@ export default function ShopFilter({
 
       {open && (
         <div
-          className="absolute left-0 right-0 z-40 mt-1 animate-fade overflow-hidden rounded-md border border-ink-line bg-white shadow-lift sm:left-auto sm:w-64"
+          className="absolute left-0 right-0 z-40 mt-1 animate-fade overflow-hidden rounded-md border border-ink-line bg-surface shadow-lift sm:left-auto sm:w-64"
           role="listbox"
           aria-label="Shops"
         >
@@ -91,7 +91,7 @@ export default function ShopFilter({
               type="button"
               role="option"
               aria-selected={value === ""}
-              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-canvas ${
+              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt ${
                 value === "" ? "bg-surface-alt font-semibold text-ink" : "text-ink-soft"
               }`}
               onClick={() => {
@@ -114,7 +114,7 @@ export default function ShopFilter({
                     type="button"
                     role="option"
                     aria-selected={selected}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded px-3 py-2.5 text-left text-sm transition-colors hover:bg-canvas ${
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-alt ${
                       selected ? "bg-surface-alt font-semibold text-ink" : "text-ink-soft"
                     }`}
                     onClick={() => {
@@ -160,7 +160,7 @@ export default function ShopFilter({
           {isAdmin && (
             <button
               type="button"
-              className="flex w-full items-center gap-2 border-t border-ink-line px-3 py-3 text-left text-sm font-semibold text-accent-deep transition-colors hover:bg-canvas"
+              className="flex w-full items-center gap-2 border-t border-ink-line px-3 py-3 text-left text-sm font-semibold text-accent-deep transition-colors hover:bg-surface-alt"
               onClick={() => {
                 setOpen(false);
                 onAdd();

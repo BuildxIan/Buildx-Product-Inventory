@@ -96,7 +96,7 @@ export default function ShopSelect({ shops, value, onChange, onDelete, onAdd, di
 
       {open && (
         <div
-          className="absolute left-0 right-0 z-30 mt-1 animate-fade overflow-hidden rounded-md border border-ink-line bg-white shadow-lift"
+          className="absolute left-0 right-0 z-30 mt-1 animate-fade overflow-hidden rounded-md border border-ink-line bg-surface shadow-lift"
           role="listbox"
           aria-label="Shops"
         >
@@ -105,7 +105,7 @@ export default function ShopSelect({ shops, value, onChange, onDelete, onAdd, di
               type="button"
               role="option"
               aria-selected={value === ""}
-              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm uppercase text-ink transition-colors hover:bg-canvas ${
+              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm uppercase text-ink transition-colors hover:bg-surface-alt ${
                 value === "" ? "bg-surface-alt" : ""
               }`}
               onClick={() => {
@@ -128,7 +128,7 @@ export default function ShopSelect({ shops, value, onChange, onDelete, onAdd, di
                     role="option"
                     aria-selected={selected}
                     ref={selected ? selectedRef : undefined}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded px-3 py-2.5 text-left text-sm uppercase text-ink transition-colors hover:bg-canvas ${
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded px-3 py-2.5 text-left text-sm uppercase text-ink transition-colors hover:bg-surface-alt ${
                       selected ? "bg-surface-alt" : ""
                     }`}
                     onClick={() => {
@@ -166,7 +166,7 @@ export default function ShopSelect({ shops, value, onChange, onDelete, onAdd, di
 
           <button
             type="button"
-            className="flex w-full items-center gap-2 border-t border-ink-line px-3 py-3 text-left text-sm uppercase text-ink transition-colors hover:bg-canvas"
+            className="flex w-full items-center gap-2 border-t border-ink-line px-3 py-3 text-left text-sm uppercase text-ink transition-colors hover:bg-surface-alt"
             onClick={() => {
               setOpen(false);
               onAdd();

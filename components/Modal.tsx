@@ -55,7 +55,7 @@ export default function Modal({ onClose, children, title, wide, size, subtitle, 
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 flex animate-fade justify-center bg-ink/45 p-0 backdrop-blur-[3px] [perspective:1400px] sm:items-center sm:p-4 ${
+      className={`fixed inset-0 z-50 flex animate-fade justify-center bg-black/55 p-0 backdrop-blur-[3px] [perspective:1400px] sm:items-center sm:p-4 ${
         mobileFullScreen ? "items-stretch" : "items-end"
       }`}
       onClick={onClose}
@@ -63,13 +63,13 @@ export default function Modal({ onClose, children, title, wide, size, subtitle, 
       <div
         role="dialog"
         aria-modal="true"
-        className={`relative w-full animate-pop overflow-y-auto border-ink-line bg-white shadow-modal ${panelShape} ${
+        className={`relative w-full animate-pop overflow-y-auto border-ink-line bg-surface shadow-modal ${panelShape} ${
           size ? SIZES[size] : wide ? SIZES.lg : SIZES.sm
         }`}
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
-          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-ink-line bg-white px-4 py-3.5 lg:px-5">
+          <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-ink-line bg-surface px-4 py-3.5 lg:px-5">
             <div className="min-w-0">
               <h2 className="font-display text-lg font-bold uppercase tracking-wide leading-tight text-ink">
                 {title}
@@ -87,7 +87,7 @@ export default function Modal({ onClose, children, title, wide, size, subtitle, 
         )}
         {!title && (
           <button
-            className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink-line bg-white/95 text-ink-soft shadow-panel transition-colors hover:bg-white hover:text-ink"
+            className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink-line bg-surface/95 text-ink-soft shadow-panel transition-colors hover:bg-surface hover:text-ink"
             onClick={onClose}
             aria-label="Close"
           >

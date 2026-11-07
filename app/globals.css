@@ -2,7 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+   Theme tokens
+   ---------------------------------------------------------------------------
+   Raw RGB channels, not hex, so Tailwind's `/opacity` modifiers keep working:
+   `border-ink/25` compiles to `rgb(var(--ink) / 0.25)`.
+   `.dark` on <html> swaps the whole palette; no component needs a `dark:`
+   variant for ordinary surfaces and text.
+--------------------------------------------------------------------------- */
 @layer base {
+  :root {
+    color-scheme: light;
+
+    --canvas: 245 246 248;
+    --surface: 255 255 255;
+    --surface-alt: 238 241 244;
+
+    --ink: 17 37 56;
+    --ink-deep: 11 26 40;
+    --ink-soft: 74 88 104;
+    --ink-faint: 139 152 167;
+    --ink-line: 221 226 232;
+    --ink-mist: 201 211 222;
+
+    --accent: 248 100 0;
+    --accent-hover: 224 90 0;
+    --accent-deep: 194 65 12;
+
+    --danger: 180 35 24;
+    --danger-hover: 145 27 18;
+    --danger-soft: 254 243 242;
+    --danger-solid: 180 35 24;
+    --danger-solid-hover: 145 27 18;
+
+    /* Brand band and the primary filled button. */
+    --brand: 17 37 56;
+    --brand-fg: 255 255 255;
+    --solid: 17 37 56;
+    --solid-hover: 11 26 40;
+    --solid-fg: 255 255 255;
+
+    --scroll-thumb: 201 211 222;
+
+    --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(17, 37, 56, 0.06),
+      0 6px 14px -8px rgba(17, 37, 56, 0.2), 0 18px 32px -24px rgba(17, 37, 56, 0.3);
+    --shadow-lift: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 3px 6px rgba(17, 37, 56, 0.07),
+      0 14px 26px -12px rgba(17, 37, 56, 0.26), 0 36px 60px -30px rgba(17, 37, 56, 0.38);
+    --shadow-modal: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(11, 26, 40, 0.08),
+      0 18px 40px -16px rgba(11, 26, 40, 0.3), 0 50px 100px -40px rgba(11, 26, 40, 0.55);
+    --shadow-panel: 0 1px 3px rgba(17, 37, 56, 0.06);
+    --shadow-well: inset 0 2px 6px rgba(17, 37, 56, 0.1), inset 0 0 0 1px rgba(17, 37, 56, 0.04);
+    --shadow-rail: 6px 0 24px -18px rgba(17, 37, 56, 0.35);
+    --shadow-solid: 0 1px 0 0 #0b1a28, 0 3px 8px -3px rgba(17, 37, 56, 0.45);
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    /* Not pure black: a cool, low-glare navy-grey keeps photos and orange
+       accents reading the way they do on the light theme. */
+    --canvas: 9 14 20;
+    --surface: 18 27 37;
+    --surface-alt: 28 40 53;
+
+    --ink: 228 236 243;
+    --ink-deep: 245 249 252;
+    --ink-soft: 158 175 191;
+    --ink-faint: 116 133 150;
+    --ink-line: 39 52 66;
+    --ink-mist: 58 74 90;
+
+    /* The brand orange is unchanged; the deep tint used for eyebrow text has
+       to lighten or it disappears against the dark canvas. */
+    --accent: 248 100 0;
+    --accent-hover: 224 90 0;
+    --accent-deep: 255 148 88;
+
+    --danger: 248 113 113;
+    --danger-hover: 252 165 165;
+    --danger-soft: 58 22 20;
+    /* Slightly deeper than the text tint so white stays legible on the fill. */
+    --danger-solid: 220 38 38;
+    --danger-solid-hover: 185 28 28;
+
+    --brand: 13 23 33;
+    --brand-fg: 255 255 255;
+    /* Primary button flips to a light chip with dark text, the usual dark-UI
+       treatment — white-on-navy would sink into the page. */
+    --solid: 228 236 243;
+    --solid-hover: 255 255 255;
+    --solid-fg: 9 14 20;
+
+    --scroll-thumb: 58 74 90;
+
+    --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 1px 2px rgba(0, 0, 0, 0.5),
+      0 8px 18px -10px rgba(0, 0, 0, 0.7), 0 22px 40px -28px rgba(0, 0, 0, 0.8);
+    --shadow-lift: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 10px rgba(0, 0, 0, 0.5),
+      0 18px 34px -14px rgba(0, 0, 0, 0.7), 0 40px 70px -32px rgba(0, 0, 0, 0.85);
+    --shadow-modal: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.55),
+      0 22px 48px -18px rgba(0, 0, 0, 0.7), 0 60px 110px -40px rgba(0, 0, 0, 0.85);
+    --shadow-panel: 0 1px 3px rgba(0, 0, 0, 0.5);
+    --shadow-well: inset 0 2px 8px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-rail: 6px 0 28px -16px rgba(0, 0, 0, 0.85);
+    --shadow-solid: 0 1px 0 0 rgba(0, 0, 0, 0.6), 0 3px 10px -4px rgba(0, 0, 0, 0.7);
+  }
+
   html,
   body {
     height: 100%;
@@ -10,24 +114,26 @@
 
   body {
     @apply bg-canvas text-ink antialiased;
+    /* Theme switches fade instead of snapping. */
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   ::selection {
-    background-color: #112538;
+    background-color: rgb(var(--accent));
     color: #ffffff;
   }
 
   /* Slimmer, quieter scrollbars to match the BuildX surface treatment. */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #c9d3de transparent;
+    scrollbar-color: rgb(var(--scroll-thumb)) transparent;
   }
   *::-webkit-scrollbar {
     width: 10px;
     height: 10px;
   }
   *::-webkit-scrollbar-thumb {
-    background-color: #c9d3de;
+    background-color: rgb(var(--scroll-thumb));
     border-radius: 999px;
     border: 3px solid transparent;
     background-clip: content-box;
@@ -54,26 +160,26 @@
 
   /* Navy is the primary action colour on buildx.ph; orange is reserved for the main CTA. */
   .btn-primary {
-    @apply btn bg-ink text-white shadow-[0_1px_0_0_#0B1A28,0_3px_8px_-3px_rgba(17,37,56,0.45)] hover:bg-ink-deep active:translate-y-px active:shadow-none;
+    @apply btn bg-solid text-solid-fg shadow-solid hover:bg-solid-hover active:translate-y-px active:shadow-none;
   }
   .btn-accent {
     @apply btn bg-accent text-white shadow-[0_1px_0_0_#B84A00,0_3px_8px_-3px_rgba(248,100,0,0.45)] hover:bg-accent-hover active:translate-y-px active:shadow-none;
   }
   .btn-ghost {
-    @apply btn border border-ink-line bg-white text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink-mist hover:bg-canvas active:translate-y-px active:shadow-none;
+    @apply btn border border-ink-line bg-surface text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink-mist hover:bg-surface-alt active:translate-y-px active:shadow-none;
   }
   .btn-outline {
-    @apply btn border border-ink/25 bg-white text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink hover:bg-canvas active:translate-y-px active:shadow-none;
+    @apply btn border border-ink/25 bg-surface text-ink shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-ink hover:bg-surface-alt active:translate-y-px active:shadow-none;
   }
   .btn-danger {
-    @apply btn bg-danger text-white shadow-[0_1px_0_0_#7A1710,0_3px_8px_-3px_rgba(180,35,24,0.45)] hover:bg-danger-hover active:translate-y-px active:shadow-none;
+    @apply btn bg-danger-solid text-white shadow-[0_1px_0_0_#7A1710,0_3px_8px_-3px_rgba(180,35,24,0.45)] hover:bg-danger-solid-hover active:translate-y-px active:shadow-none;
   }
   .btn-danger-ghost {
-    @apply btn border border-danger/25 bg-white text-danger shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-danger/50 hover:bg-danger-soft active:translate-y-px active:shadow-none;
+    @apply btn border border-danger/25 bg-surface text-danger shadow-[0_1px_2px_rgba(17,37,56,0.05)] hover:border-danger/50 hover:bg-danger-soft active:translate-y-px active:shadow-none;
   }
 
   .input {
-    @apply w-full rounded border border-ink-line bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-ink focus:ring-2 focus:ring-ink/10;
+    @apply w-full rounded border border-ink-line bg-canvas px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-ink focus:bg-surface focus:ring-2 focus:ring-ink/10;
   }
 
   .icon-btn {
@@ -90,7 +196,7 @@
   }
 
   .card-surface {
-    @apply rounded-md border border-ink-line bg-white;
+    @apply rounded-md border border-ink-line bg-surface;
   }
 
   /* Cursor-driven 3D tilt. Desktop pointers only; flat for touch and reduced motion. */

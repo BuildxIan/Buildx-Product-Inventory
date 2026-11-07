@@ -213,7 +213,7 @@ export default function ProductForm({
                 <img src={imageUrl(img.path)} alt="" className="h-full w-full object-contain p-1" />
                 <button
                   type="button"
-                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink/70 text-white transition-colors hover:bg-ink"
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
                   onClick={() => setKeptImages((k) => k.filter((i) => i.id !== img.id))}
                   aria-label="Remove photo"
                 >
@@ -227,7 +227,7 @@ export default function ProductForm({
                 <img src={src} alt="" className="h-full w-full object-contain p-1" />
                 <button
                   type="button"
-                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink/70 text-white transition-colors hover:bg-ink"
+                  className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
                   onClick={() => setNewFiles((f) => f.filter((_, idx) => idx !== i))}
                   aria-label="Remove photo"
                 >
@@ -277,7 +277,7 @@ export default function ProductForm({
                 <input
                   type="color"
                   title="Swatch color (optional)"
-                  className="h-9 w-10 shrink-0 cursor-pointer rounded border border-ink-line bg-white p-0.5"
+                  className="h-9 w-10 shrink-0 cursor-pointer rounded border border-ink-line bg-surface p-0.5"
                   value={v.color_hex || "#cccccc"}
                   onChange={(e) => updateVariant(i, { color_hex: e.target.value })}
                 />
@@ -336,7 +336,7 @@ export default function ProductForm({
           <p className="rounded border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>
         )}
 
-        <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-end gap-2 border-t border-ink-line bg-white px-4 py-3 lg:-mx-5 lg:-mb-5 lg:px-5">
+        <div className="sticky bottom-0 -mx-4 -mb-4 flex justify-end gap-2 border-t border-ink-line bg-surface px-4 py-3 lg:-mx-5 lg:-mb-5 lg:px-5">
           <button type="button" className="btn-ghost" onClick={onClose} disabled={busy}>
             Cancel
           </button>

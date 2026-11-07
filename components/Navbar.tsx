@@ -3,6 +3,7 @@
 import { LogOut, Plus, Search, Trash2, X } from "lucide-react";
 import type { Shop } from "@/lib/types";
 import ShopFilter from "./ShopFilter";
+import ThemeToggle from "./ThemeToggle";
 
 export type Mode = "edit" | "delete" | null;
 
@@ -63,7 +64,7 @@ export default function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-ink-line bg-white shadow-[0_2px_10px_-8px_rgba(17,37,56,0.45)]">
+    <header className="sticky top-0 z-20 border-b border-ink-line bg-surface shadow-[0_2px_10px_-8px_rgba(17,37,56,0.45)]">
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 sm:px-3 lg:gap-3 lg:px-5 lg:py-3">
         <div className="relative min-w-0 flex-1">
           <Search
@@ -71,7 +72,7 @@ export default function Navbar({
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint lg:left-3.5 lg:h-[18px] lg:w-[18px]"
           />
           <input
-            className="h-10 w-full rounded border border-ink-line bg-white pl-9 pr-8 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-ink focus:ring-2 focus:ring-ink/10 lg:h-11 lg:pl-10 lg:pr-9 lg:text-[15px]"
+            className="h-10 w-full rounded border border-ink-line bg-canvas pl-9 pr-8 text-sm text-ink outline-none transition placeholder:text-ink-faint focus:border-ink focus:bg-surface focus:ring-2 focus:ring-ink/10 lg:h-11 lg:pl-10 lg:pr-9 lg:text-[15px]"
             placeholder={searchLabel}
             aria-label={searchLabel}
             value={query}
@@ -105,7 +106,7 @@ export default function Navbar({
             className={`inline-flex h-9 w-9 items-center justify-center rounded border transition-colors lg:h-11 lg:w-11 ${
               mode === "delete"
                 ? "border-danger bg-danger-soft text-danger"
-                : "border-ink-line bg-white text-ink-soft hover:border-ink-mist hover:text-ink"
+                : "border-ink-line bg-surface text-ink-soft hover:border-ink-mist hover:text-ink"
             }`}
             onClick={guard(() => onMode(mode === "delete" ? null : "delete"))}
             aria-label="Delete products"
@@ -113,14 +114,16 @@ export default function Navbar({
           >
             <Trash2 size={17} />
           </button>
+          <ThemeToggle />
           <button
-            className="inline-flex h-9 items-center gap-1.5 rounded border border-ink-line bg-white px-2.5 text-[13px] font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-canvas lg:h-11 lg:px-3.5 lg:text-sm"
+            className="inline-flex h-9 w-9 items-center justify-center gap-1.5 rounded border border-ink-line bg-surface px-0 text-[13px] font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-surface-alt sm:w-auto sm:px-2.5 lg:h-11 lg:px-3.5 lg:text-sm"
             onClick={onLogout}
             aria-label="Log out"
             title="Log out"
           >
             <LogOut size={16} />
-            <span>Logout</span>
+            {/* The label would crowd the search field on small phones. */}
+            <span className="hidden sm:inline">Logout</span>
           </button>
         </div>
       </div>

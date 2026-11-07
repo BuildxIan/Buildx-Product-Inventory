@@ -2,8 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, ShieldCheck, User } from "lucide-react";
+import {
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Images,
+  Loader2,
+  Lock,
+  ShieldCheck,
+  Store,
+  Tags,
+  User,
+} from "lucide-react";
 import { supabase, usernameToEmail } from "@/lib/supabase";
+import ThemeToggle from "./ThemeToggle";
 
 type Props = {
   /** False when the Supabase env vars are missing — show setup help instead. */
@@ -25,6 +37,13 @@ function friendly(message: string): string {
   }
   return message;
 }
+
+/** The three things the catalog actually does, used as proof on the brand panel. */
+const FEATURES = [
+  { icon: Tags, label: "Products, prices and codes", note: "One record per item" },
+  { icon: Images, label: "Multiple photos per product", note: "Plus shareable detail cards" },
+  { icon: Store, label: "Categories and shops", note: "Filter the catalog instantly" },
+];
 
 export default function LoginPage({ configured, next }: Props) {
   const router = useRouter();
@@ -61,90 +80,130 @@ export default function LoginPage({ configured, next }: Props) {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col lg:grid lg:grid-cols-[1.08fr_1fr]">
-      {/* Brand panel — desktop only */}
-      <aside className="relative hidden overflow-hidden bg-ink px-12 py-10 lg:flex lg:flex-col lg:justify-between">
+    <main className="flex min-h-dvh flex-col bg-canvas lg:grid lg:grid-cols-[1.05fr_1fr]">
+      {/* ---------------- Brand panel (desktop) ---------------- */}
+      {/* The panel follows the theme so the matching lockup stays legible:
+          white surface + navy mark in light mode, dark surface + white mark
+          in dark mode. */}
+      <aside className="relative hidden overflow-hidden border-r border-ink-line bg-surface px-12 py-10 lg:flex lg:flex-col lg:justify-between xl:px-16 xl:py-12">
+        {/* Faint blueprint grid, tinted from the ink token so it adapts. */}
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.16]"
+          className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
-              "linear-gradient(to right, #C9D3DE 1px, transparent 1px), linear-gradient(to bottom, #C9D3DE 1px, transparent 1px)",
-            backgroundSize: "34px 34px",
+              "linear-gradient(to right, rgb(var(--ink) / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(var(--ink) / 0.04) 1px, transparent 1px)",
+            backgroundSize: "38px 38px",
           }}
         />
         <div
-          className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full opacity-[0.14]"
-          style={{ background: "radial-gradient(circle, #F86400 0%, transparent 70%)" }}
+          className="pointer-events-none absolute -right-28 -top-28 h-80 w-80 rounded-full opacity-[0.13] blur-[2px] dark:opacity-20"
+          style={{ background: "radial-gradient(circle, #F86400 0%, transparent 68%)" }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full opacity-[0.10] dark:opacity-[0.12]"
+          style={{ background: "radial-gradient(circle, #7FB4E8 0%, transparent 70%)" }}
         />
 
         <div className="relative">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 items-center justify-center rounded bg-accent font-display text-2xl font-bold leading-none text-white">
-              B
-            </span>
-            <div>
-              <p className="font-display text-[26px] font-bold uppercase leading-none tracking-[0.2em] text-white">
-                Buildx
-              </p>
-              <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.28em] text-ink-mist">
-                Product Catalog
-              </p>
-            </div>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Light.png"
+            alt="BuildX"
+            width={1912}
+            height={648}
+            className="h-11 w-auto dark:hidden xl:h-12"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Dark.png"
+            alt="BuildX"
+            width={1958}
+            height={670}
+            className="hidden h-11 w-auto dark:block xl:h-12"
+          />
         </div>
 
-        <div className="relative max-w-md">
+        <div className="relative max-w-lg">
           <div className="mb-6 h-1 w-12 rounded-full bg-accent" />
-          <h1 className="font-display text-[40px] font-bold uppercase leading-[1.04] tracking-wide text-white xl:text-[46px]">
+          <h1 className="font-display text-[42px] font-bold uppercase leading-[1.03] tracking-wide text-ink xl:text-[52px]">
             Every product.
             <br />
             One catalog.
           </h1>
-          <p className="mt-4 max-w-[34ch] text-sm leading-relaxed text-ink-mist">
-            Sign in to manage your building materials — products, photos, prices, categories and shops, all in
-            one place.
+          <p className="mt-5 max-w-[38ch] text-[15px] leading-relaxed text-ink-soft">
+            Manage your building materials — products, photos, prices, categories and shops — from a
+            single organized catalog.
           </p>
+
+          <ul className="mt-9 space-y-3.5">
+            {FEATURES.map(({ icon: Icon, label, note }) => (
+              <li key={label} className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded bg-ink/[0.06] text-accent">
+                  <Icon size={16} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13.5px] font-semibold leading-tight text-ink">
+                    {label}
+                  </span>
+                  <span className="mt-0.5 block text-[12px] leading-tight text-ink-faint">{note}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
 
-        <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-mist">
+        <div className="relative flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-faint">
           <ShieldCheck size={15} className="text-accent" />
           Authorized staff only
         </div>
       </aside>
 
-      {/* Form side */}
-      <div className="flex flex-1 flex-col bg-canvas">
-        {/* Compact brand bar for phones and tablets */}
-        <div className="flex items-center gap-2.5 bg-ink px-5 py-4 lg:hidden">
-          <span className="flex h-9 w-9 items-center justify-center rounded bg-accent font-display text-lg font-bold leading-none text-white">
-            B
-          </span>
-          <div className="min-w-0">
-            <p className="font-display text-lg font-bold uppercase leading-none tracking-[0.18em] text-white">
-              Buildx
-            </p>
-            <p className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.24em] text-ink-mist">
-              Product Catalog
-            </p>
-          </div>
+      {/* ---------------- Form side ---------------- */}
+      <div className="flex flex-1 flex-col">
+        {/* Compact brand band for phones and tablets */}
+        <div className="flex items-center justify-between gap-3 border-b border-ink-line bg-surface px-4 py-3 lg:hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Light.png"
+            alt="BuildX"
+            width={1912}
+            height={648}
+            className="h-9 w-auto dark:hidden"
+          />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/BuildX_Logo_Dark.png"
+            alt="BuildX"
+            width={1958}
+            height={670}
+            className="hidden h-9 w-auto dark:block"
+          />
+          <ThemeToggle className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-ink-line text-ink-soft transition-colors hover:bg-surface-alt hover:text-ink" />
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-8 sm:py-12">
-          <div className="w-full max-w-[400px]">
-            <div className="rounded-lg border border-ink-line bg-white p-5 shadow-panel sm:p-7">
-              <h2 className="font-display text-2xl font-bold uppercase tracking-wide text-ink">Sign in</h2>
-              <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
+        <div className="hidden justify-end px-6 pt-6 lg:flex xl:px-10 xl:pt-8">
+          <ThemeToggle />
+        </div>
+
+        <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 sm:py-10 lg:px-10 lg:py-8">
+          <div className="w-full max-w-[420px]">
+            <div className="rounded-xl border border-ink-line bg-surface p-6 shadow-modal sm:p-8">
+              <p className="eyebrow">Welcome back</p>
+              <h2 className="mt-2 font-display text-[26px] font-bold uppercase leading-none tracking-wide text-ink sm:text-[28px]">
+                Sign in
+              </h2>
+              <p className="mt-2.5 text-[13px] leading-relaxed text-ink-soft">
                 Use the catalog username and password you were given.
               </p>
 
               {!configured ? (
-                <p className="mt-5 rounded border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] leading-relaxed text-danger">
-                  Supabase is not configured. Add <code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-                  <code className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{" "}
+                <p className="mt-6 rounded border border-danger/25 bg-danger-soft px-3.5 py-3 text-[13px] leading-relaxed text-danger">
+                  Supabase is not configured. Add <code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code>{" "}
+                  and <code className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to{" "}
                   <code className="font-mono">.env.local</code>, then restart the server.
                 </p>
               ) : (
-                <form onSubmit={submit} className="mt-5 space-y-4" noValidate>
+                <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
                   <div>
                     <label className="label" htmlFor="username">
                       Username
@@ -231,7 +290,7 @@ export default function LoginPage({ configured, next }: Props) {
               )}
             </div>
 
-            <p className="mt-4 px-1 text-center text-[11px] leading-relaxed text-ink-faint">
+            <p className="mt-5 px-2 text-center text-[11px] leading-relaxed text-ink-faint">
               Accounts are created by the catalog owner. There is no public sign-up.
             </p>
           </div>

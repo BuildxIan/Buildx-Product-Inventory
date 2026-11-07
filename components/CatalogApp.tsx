@@ -436,8 +436,8 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   if (!isConfigured) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-lg items-center p-6">
-        <div className="w-full rounded-md border border-ink-line bg-white p-6 shadow-panel">
-          <span className="mb-4 flex h-11 w-11 items-center justify-center rounded bg-ink text-white">
+        <div className="w-full rounded-md border border-ink-line bg-surface p-6 shadow-panel">
+          <span className="mb-4 flex h-11 w-11 items-center justify-center rounded bg-brand text-brand-fg">
             <Package size={20} />
           </span>
           <h1 className="font-display text-xl font-bold uppercase tracking-wide text-ink">
@@ -538,7 +538,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
                 aria-expanded={sidebarOpen}
                 aria-controls="category-sidebar"
                 title={sidebarOpen ? "Hide categories" : "Show categories"}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-ink-line bg-white text-ink transition-colors hover:border-ink-mist hover:bg-canvas active:bg-surface-alt lg:h-11 lg:w-11"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-ink-line bg-surface text-ink transition-colors hover:border-ink-mist hover:bg-surface-alt active:bg-surface-alt lg:h-11 lg:w-11"
               >
                 <Menu size={18} strokeWidth={1.9} />
               </button>
@@ -568,7 +568,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
               {Array.from({ length: 8 }).map((_, i) => (
                 <div
                   key={i}
-                  className="overflow-hidden rounded-md border border-ink-line bg-white"
+                  className="overflow-hidden rounded-md border border-ink-line bg-surface"
                 >
                   <div className="aspect-square w-full animate-pulse bg-surface-alt" />
                   <div className="space-y-2 p-3">
@@ -580,7 +580,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
               ))}
             </div>
           ) : visible.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-ink-mist bg-white/60 px-6 py-16 text-center">
+            <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-ink-mist bg-surface/60 px-6 py-16 text-center">
               <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-surface-alt text-ink-faint">
                 <Package size={22} />
               </span>
@@ -700,7 +700,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
       )}
 
       {toast && (
-        <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 animate-rise rounded bg-ink px-4 py-2.5 text-sm font-medium text-white shadow-lift">
+        <div className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 animate-rise rounded bg-brand px-4 py-2.5 text-sm font-medium text-brand-fg shadow-lift">
           {toast}
         </div>
       )}
