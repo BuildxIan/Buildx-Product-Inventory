@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Check, Layers, Pencil, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, ChevronRight, Layers, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { Category } from "@/lib/types";
+import { buildCategoryTree, hasSiblingNamed, isMainCategory } from "@/lib/categories";
 import CategoryModal from "./CategoryModal";
 
 type Props = {
@@ -12,9 +13,12 @@ type Props = {
   selectedId: string | null; // null = all products
   isAdmin: boolean;
   open: boolean; // drawer state on mobile, visibility on desktop
+  /** False until `categories.parent_id` exists — subcategories are then unavailable. */
+  parentEnabled: boolean;
   onSelect: (id: string | null) => void;
   onClose: () => void;
-  onAdd: (name: string) => Promise<Category | null>;
+  /** `parentId` null = main category; an id = subcategory of that main category. */
+  onAdd: (name: string, parentId: string | null) => Promise<Category | null>;
   onRename: (id: string, name: string) => Promise<void>;
   onDelete: (category: Category) => void;
 };
@@ -26,6 +30,7 @@ export default function Sidebar({
   selectedId,
   isAdmin,
   open,
+  parentEnabled,
   onSelect,
   onClose,
   onAdd,
@@ -33,23 +38,50 @@ export default function Sidebar({
   onDelete,
 }: Props) {
   const [editMode, setEditMode] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
+  /** Which parent the "new category" dialog opens with: null = main category. */
+  const [addParent, setAddParent] = useState<{ parentId: string | null } | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameError, setRenameError] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
-  async function submitRename(id: string) {
+  const tree = useMemo(() => buildCategoryTree(categories), [categories]);
+
+  const selected = selectedId ? categories.find((c) => c.id === selectedId) ?? null : null;
+  // A subcategory cannot hold categories, so the action only exists one level up.
+  const selectedIsMain = selected ? isMainCategory(categories, selected) : false;
+  const canAddSubcategory = Boolean(selected && selectedIsMain && parentEnabled);
+
+  /**
+   * A main category counts the products of its whole branch; a subcategory
+   * counts only its own.
+   */
+  const displayedCount = useMemo(() => {
+    const totals: Record<string, number> = {};
+    for (const node of tree) {
+      const own = counts[node.category.id] ?? 0;
+      totals[node.category.id] = node.children.reduce(
+        (sum, child) => sum + (counts[child.category.id] ?? 0),
+        own
+      );
+      for (const child of node.children) totals[child.category.id] = counts[child.category.id] ?? 0;
+    }
+    return totals;
+  }, [tree, counts]);
+
+  async function submitRename(category: Category) {
     const name = renameValue.trim().toUpperCase();
     if (!name) {
       setRenameError("Name can't be empty.");
       return;
     }
-    if (categories.some((c) => c.id !== id && c.name.trim().toUpperCase() === name)) {
-      setRenameError("That category already exists.");
+    // Duplicates only matter among siblings: CEMENT may exist under two mains.
+    if (hasSiblingNamed(categories, category.parent_id ?? null, name, category.id)) {
+      setRenameError("That category already exists here.");
       return;
     }
     try {
-      await onRename(id, name);
+      await onRename(category.id, name);
       setRenamingId(null);
       setRenameError("");
     } catch (err) {
@@ -57,14 +89,189 @@ export default function Sidebar({
     }
   }
 
-  function startRename(c: Category) {
-    setRenamingId(c.id);
-    setRenameValue(c.name.toUpperCase());
+  function startRename(category: Category) {
+    setRenamingId(category.id);
+    setRenameValue(category.name.toUpperCase());
     setRenameError("");
+  }
+
+  function toggle(categoryId: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(categoryId)) next.delete(categoryId);
+      else next.add(categoryId);
+      return next;
+    });
+  }
+
+  function expand(categoryId: string) {
+    setCollapsed((prev) => {
+      if (!prev.has(categoryId)) return prev;
+      const next = new Set(prev);
+      next.delete(categoryId);
+      return next;
+    });
+  }
+
+  /** Reveal a freshly created subcategory even if its parent was collapsed. */
+  function reveal(parentId: string) {
+    expand(parentId);
+  }
+
+  function openAdd(parentId: string | null) {
+    setAddParent({ parentId });
   }
 
   const rowBase =
     "relative flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition-colors duration-150 lg:gap-2.5 lg:px-3.5 lg:py-2.5 lg:text-[15px]";
+
+  const closeOnMobile = () => {
+    if (window.innerWidth < 768) onClose();
+  };
+
+  /**
+   * Main categories are the orange tier; subcategories keep the neutral ink.
+   * `accent-deep` is the readable orange — it is #C2410C on the light surface
+   * (5.2:1 against white, 4.6:1 against the selected `surface-alt`) and
+   * lightens to #FF9458 in dark mode, where it clears 7.9:1. The raw
+   * `accent` token is a fill colour and would only reach 3.1:1 as text.
+   * Declared on the label itself so it wins over the row's inherited
+   * `text-ink` / `text-ink-soft` and stays put across hover, selection and
+   * expand/collapse — those still signal through the row background.
+   */
+  const mainTierText = "text-accent-deep";
+
+  /** One row. `level` 0 = main category, 1 = subcategory (the deepest level). */
+  function renderRow(category: Category, level: number) {
+    const isSelected = selectedId === category.id;
+    const isMain = level === 0;
+    const node = tree.find((n) => n.category.id === category.id);
+    const hasChildren = isMain && Boolean(node?.children.length);
+    const isOpen = !collapsed.has(category.id);
+
+    if (renamingId === category.id) {
+      return (
+        <div key={category.id} className="flex items-center gap-1">
+          <input
+            autoFocus
+            className="input py-1.5 uppercase"
+            value={renameValue}
+            onChange={(e) => {
+              setRenameValue(e.target.value.toUpperCase());
+              if (renameError) setRenameError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitRename(category);
+              if (e.key === "Escape") {
+                setRenamingId(null);
+                setRenameError("");
+              }
+            }}
+          />
+          <button
+            className="icon-btn shrink-0 text-emerald-600 dark:text-emerald-400"
+            onClick={() => submitRename(category)}
+            aria-label="Save"
+          >
+            <Check size={17} />
+          </button>
+          {renameError && <p className="px-1 pt-1 text-[11px] text-danger">{renameError}</p>}
+        </div>
+      );
+    }
+
+    return (
+      <div key={category.id} className="group flex items-center gap-1">
+        {isMain &&
+          (hasChildren ? (
+            <button
+              type="button"
+              onClick={() => toggle(category.id)}
+              className={`flex h-7 w-5 shrink-0 items-center justify-center rounded transition-colors hover:bg-surface-alt ${mainTierText}`}
+              aria-label={isOpen ? `Collapse ${category.name}` : `Expand ${category.name}`}
+              aria-expanded={isOpen}
+            >
+              <ChevronRight
+                size={13}
+                strokeWidth={2.4}
+                className={`transition-transform duration-150 ${isOpen ? "rotate-90" : ""}`}
+              />
+            </button>
+          ) : (
+            // Keeps a childless main category aligned with the others.
+            <span className="w-5 shrink-0" aria-hidden />
+          ))}
+
+        <button
+          onClick={() => {
+            if (isMain) {
+              // First click opens the branch; clicking the selected main again
+              // folds it back up. Selecting never closes the mobile drawer —
+              // the subcategories have to stay reachable.
+              if (isSelected) toggle(category.id);
+              else {
+                onSelect(category.id);
+                expand(category.id);
+              }
+              return;
+            }
+            onSelect(category.id);
+            closeOnMobile();
+          }}
+          className={`${rowBase} ${
+            isSelected ? "bg-surface-alt text-ink" : "text-ink-soft hover:bg-surface-alt hover:text-ink"
+          }`}
+        >
+          {isSelected && <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r-full bg-accent" />}
+          <span
+            className={`flex-1 truncate uppercase tracking-[0.04em] ${
+              isMain ? `text-[12.5px] lg:text-[13.5px] ${mainTierText}` : "text-[11.5px] lg:text-[12.5px]"
+            } ${isSelected ? "font-bold" : "font-semibold"}`}
+          >
+            {category.name}
+          </span>
+          <span className="text-[11px] font-medium tabular-nums text-ink-faint">
+            {displayedCount[category.id] ?? 0}
+          </span>
+        </button>
+
+        {/* Delete exists on subcategories only: always visible on touch, revealed
+            on hover for pointer devices (see .subcategory-delete). */}
+        {!isMain && !editMode && (
+          <button
+            type="button"
+            onClick={() => onDelete(category)}
+            className="subcategory-delete mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger"
+            aria-label={`Delete subcategory ${category.name}`}
+            title="Delete subcategory"
+          >
+            <X size={13} strokeWidth={2.4} />
+          </button>
+        )}
+
+        {editMode && (
+          <>
+            <button
+              className="icon-btn shrink-0"
+              onClick={() => startRename(category)}
+              aria-label={`Rename ${category.name}`}
+              title="Rename"
+            >
+              <Pencil size={14} />
+            </button>
+            <button
+              className="icon-btn shrink-0 text-danger hover:bg-danger-soft"
+              onClick={() => onDelete(category)}
+              aria-label={`Delete ${category.name}`}
+              title="Delete"
+            >
+              <Trash2 size={14} />
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -100,6 +307,17 @@ export default function Sidebar({
             height={670}
             className="hidden h-10 w-auto dark:block lg:h-11"
           />
+          {/* The drawer covers the header toggle while it is open, so the close
+              control travels with it. Phones and tablets only. */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn ml-auto h-9 w-9 shrink-0 md:hidden"
+            aria-label="Close categories"
+            title="Close categories"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Section label and the category tools that used to live in the bar. */}
@@ -110,9 +328,11 @@ export default function Sidebar({
           {isAdmin && (
             <button
               className="icon-btn h-8 w-8 lg:h-9 lg:w-9"
-              onClick={() => setShowAdd(true)}
-              aria-label="Add category"
-              title="Add category"
+              // Inside a main category "+" adds a subcategory; anywhere else it
+              // adds a main category. A subcategory never gets a child.
+              onClick={() => openAdd(canAddSubcategory ? selectedId : null)}
+              aria-label={canAddSubcategory ? "Add subcategory" : "Add category"}
+              title={canAddSubcategory ? "Add subcategory" : "Add category"}
             >
               <Plus size={17} />
             </button>
@@ -139,7 +359,7 @@ export default function Sidebar({
           <button
             onClick={() => {
               onSelect(null);
-              if (window.innerWidth < 768) onClose();
+              closeOnMobile();
             }}
             className={`${rowBase} ${
               selectedId === null
@@ -150,95 +370,41 @@ export default function Sidebar({
             {selectedId === null && (
               <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r-full bg-accent" />
             )}
-            <Layers size={16} className="shrink-0" />
-            <span className="flex-1 truncate">All products</span>
+            <Layers size={16} className={`shrink-0 ${mainTierText}`} />
+            <span className={`flex-1 truncate ${mainTierText}`}>All products</span>
             <span className="text-[11px] font-medium tabular-nums text-ink-faint">{total}</span>
           </button>
 
           <div className="my-1.5 h-px bg-ink-line/70 lg:my-2" />
 
-          {categories.map((c) => (
-            <div key={c.id} className="group flex items-center gap-1">
-              {renamingId === c.id ? (
-                <div className="w-full">
-                  <div className="flex w-full items-center gap-1">
-                    <input
-                      autoFocus
-                      className="input py-1.5 uppercase"
-                      value={renameValue}
-                      onChange={(e) => {
-                        setRenameValue(e.target.value.toUpperCase());
-                        if (renameError) setRenameError("");
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") submitRename(c.id);
-                        if (e.key === "Escape") {
-                          setRenamingId(null);
-                          setRenameError("");
-                        }
-                      }}
-                    />
-                    <button
-                      className="icon-btn shrink-0 text-emerald-600 dark:text-emerald-400"
-                      onClick={() => submitRename(c.id)}
-                      aria-label="Save"
-                    >
-                      <Check size={17} />
-                    </button>
+          {tree.map((node) => {
+            const isSelectedMain = selectedId === node.category.id;
+            const isOpen = !collapsed.has(node.category.id);
+
+            return (
+              <div key={node.category.id}>
+                {renderRow(node.category, 0)}
+
+                {/* Immediate subcategories only — the tree never goes deeper. */}
+                {isOpen && node.children.length > 0 && (
+                  <div className="ml-3 mt-0.5 space-y-0.5 border-l border-ink-line/70 pl-3">
+                    {node.children.map((child) => renderRow(child.category, 1))}
                   </div>
-                  {renameError && <p className="px-1 pt-1 text-[11px] text-danger">{renameError}</p>}
-                </div>
-              ) : (
-                <>
+                )}
+
+                {isSelectedMain && isAdmin && parentEnabled && (
                   <button
-                    onClick={() => {
-                      onSelect(c.id);
-                      if (window.innerWidth < 768) onClose();
-                    }}
-                    className={`${rowBase} ${
-                      selectedId === c.id
-                        ? "bg-surface-alt text-ink"
-                        : "text-ink-soft hover:bg-surface-alt hover:text-ink"
-                    }`}
+                    type="button"
+                    onClick={() => openAdd(node.category.id)}
+                    className="mb-0.5 mt-1 ml-8 flex w-[calc(100%-2rem)] items-center gap-1.5 rounded border border-dashed border-ink-mist px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-faint transition-colors hover:border-ink hover:text-ink"
                   >
-                    {selectedId === c.id && (
-                      <span className="absolute inset-y-1.5 left-0 w-[3px] rounded-r-full bg-accent" />
-                    )}
-                    <span
-                      className={`flex-1 truncate text-[12.5px] uppercase tracking-[0.04em] lg:text-[13.5px] ${
-                        selectedId === c.id ? "font-bold" : "font-semibold"
-                      }`}
-                    >
-                      {c.name}
-                    </span>
-                    <span className="text-[11px] font-medium tabular-nums text-ink-faint">
-                      {counts[c.id] ?? 0}
-                    </span>
+                    <Plus size={12} strokeWidth={2.6} />
+                    Add subcategory
                   </button>
-                  {editMode && (
-                    <>
-                      <button
-                        className="icon-btn shrink-0"
-                        onClick={() => startRename(c)}
-                        aria-label={`Rename ${c.name}`}
-                        title="Rename"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="icon-btn shrink-0 text-danger hover:bg-danger-soft"
-                        onClick={() => onDelete(c)}
-                        aria-label={`Delete ${c.name}`}
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
 
           {categories.length === 0 && (
             <p className="px-3 py-6 text-center text-xs text-ink-faint">No categories yet.</p>
@@ -246,10 +412,19 @@ export default function Sidebar({
         </nav>
       </aside>
 
-      {/* The collapse/expand control now lives in the page header (see CatalogApp). */}
+      {/* The collapse/expand control now lives in the navbar (see Navbar). */}
 
-      {showAdd && (
-        <CategoryModal categories={categories} onSave={onAdd} onClose={() => setShowAdd(false)} />
+      {addParent && (
+        <CategoryModal
+          categories={categories}
+          parentId={addParent.parentId}
+          onSave={async (name, parentId) => {
+            const created = await onAdd(name, parentId);
+            if (created?.parent_id) reveal(created.parent_id);
+            return created;
+          }}
+          onClose={() => setAddParent(null)}
+        />
       )}
     </>
   );

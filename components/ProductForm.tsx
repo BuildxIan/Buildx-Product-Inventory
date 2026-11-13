@@ -9,6 +9,7 @@ import ShopSelect from "./ShopSelect";
 import ShopDeleteDialog from "./ShopDeleteDialog";
 import type { Category, Product, ProductImage, Shop } from "@/lib/types";
 import { imageUrl } from "@/lib/supabase";
+import { categoryOptions, mainOf, NEW_CATEGORY } from "@/lib/categories";
 
 export type VariantInput = { label: string; color_hex: string; price: string };
 
@@ -34,8 +35,10 @@ type Props = {
   defaultCategoryId: string | null;
   /** False until the `code` column exists in the database. */
   codeEnabled: boolean;
+  /** False until `categories.parent_id` exists — the dialog then only offers top-level categories. */
+  parentEnabled: boolean;
   /** Creates a category (uppercased, duplicate-checked) and returns it. */
-  onAddCategory: (name: string) => Promise<Category | null>;
+  onAddCategory: (name: string, parentId?: string | null) => Promise<Category | null>;
   /** Creates a shop (trimmed, duplicate-checked) and returns it. */
   onAddShop: (name: string) => Promise<Shop | null>;
   /** Deletes a shop after moving its products to `reassignTo` (null = none). */
@@ -44,8 +47,6 @@ type Props = {
   onClose: () => void;
 };
 
-const NEW_CATEGORY = "__new_category__";
-
 export default function ProductForm({
   product,
   categories,
@@ -53,6 +54,7 @@ export default function ProductForm({
   shopCounts,
   defaultCategoryId,
   codeEnabled,
+  parentEnabled,
   onAddCategory,
   onAddShop,
   onDeleteShop,
@@ -182,9 +184,11 @@ export default function ProductForm({
               }}
             >
               <option value="">Uncategorized</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              {/* Subcategories are listed indented under their parent, so the
+                  hierarchy reads the same way here as it does in the sidebar. */}
+              {categoryOptions(categories).map((o) => (
+                <option key={o.category.id} value={o.category.id}>
+                  {o.label}
                 </option>
               ))}
               <option value={NEW_CATEGORY}>+ Create new category...</option>
@@ -372,12 +376,17 @@ export default function ProductForm({
         />
       )}
 
-      {/* Same dialog the sidebar uses, so category rules live in one place. */}
+      {/* Same dialog the sidebar uses, so category rules live in one place.
+          The parent is taken from the Category field: a new category created
+          while filing under CEMENT becomes a sibling subcategory under
+          CONSTRUCTION MATERIALS, never a third level. With no category chosen
+          it creates a main category. The dialog offers no parent choice. */}
       {showNewCategory && (
         <CategoryModal
           categories={categories}
-          onSave={async (name) => {
-            const created = await onAddCategory(name);
+          parentId={parentEnabled ? mainOf(categories, categoryId)?.id ?? null : null}
+          onSave={async (name, parentId) => {
+            const created = await onAddCategory(name, parentId);
             if (created) setCategoryId(created.id);
           }}
           onClose={() => setShowNewCategory(false)}

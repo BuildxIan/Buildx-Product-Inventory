@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { LogOut, Menu, Package } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LogOut, Package, Plus } from "lucide-react";
 import { supabase, isConfigured, BUCKET } from "@/lib/supabase";
 import { compressImage, originalExtension } from "@/lib/image";
 import type { Category, Product, Shop } from "@/lib/types";
+import { canCreateUnder, categoryLabel, categoryPath, categoryScopeIds, isMainCategory, mainOf } from "@/lib/categories";
+import { useNavAutoHide } from "@/lib/useNavAutoHide";
+import { useEdgeSwipe } from "@/lib/useEdgeSwipe";
 import Sidebar from "./Sidebar";
 import Navbar, { type Mode } from "./Navbar";
 import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import ProductForm, { type FormValues } from "./ProductForm";
+import CategoryModal from "./CategoryModal";
 import ConfirmDialog from "./ConfirmDialog";
 import ShopModal from "./ShopModal";
 import ShopDeleteDialog from "./ShopDeleteDialog";
@@ -26,6 +30,8 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   const [hasCodeColumn, setHasCodeColumn] = useState(true);
   /** False until `product_images.original_path` exists — new uploads then skip it. */
   const [hasOriginalColumn, setHasOriginalColumn] = useState(false);
+  /** False until `categories.parent_id` exists — subcategories then stay unavailable. */
+  const [hasParentColumn, setHasParentColumn] = useState(false);
 
   // Seeded from the server render, so admin controls never flicker on load.
   const [authed, setAuthed] = useState(initialAuthed);
@@ -44,11 +50,28 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   const [form, setForm] = useState<FormState>(null);
   const [deleteTargets, setDeleteTargets] = useState<Product[] | null>(null);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null);
+  /** Which parent the header's category dialog opens with: null = top level. */
+  const [categoryModal, setCategoryModal] = useState<{ parentId: string | null } | null>(null);
   const [showShopModal, setShowShopModal] = useState(false);
   const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
+
+  // The right-hand column is the page's scroll container, which is what lets the
+  // sticky navbar slide away without moving any content (see useNavAutoHide).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const navHidden = useNavAutoHide(scrollRef, navRef, categoryId);
+
+  // Phone/tablet only: swipe in from the left edge to reach the drawer from any
+  // scroll position, swipe left on it to close. It drives the same
+  // `sidebarOpen` state the header toggle uses — no second navigation system.
+  useEdgeSwipe({
+    isOpen: sidebarOpen,
+    onOpen: () => setSidebarOpen(true),
+    onClose: () => setSidebarOpen(false),
+  });
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -85,17 +108,21 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
       setLoading(false);
       return;
     }
-    const [c, s, p] = await Promise.all([
+    const [c, s, p, parentProbe] = await Promise.all([
       supabase.from("categories").select("*").order("sort_order").order("created_at"),
       supabase.from("shops").select("*").order("name"),
       supabase
         .from("products")
         .select("*, product_images(*), product_variants(*)")
         .order("created_at", { ascending: false }),
+      // One cheap probe for the hierarchy column. An empty table answers with
+      // no error, so only a missing column reports one.
+      supabase.from("categories").select("parent_id").limit(1),
     ]);
     const err = c.error || s.error || p.error;
     if (err) setLoadError(err.message);
     else setLoadError("");
+    setHasParentColumn(!parentProbe.error);
     const rows = ((p.data as unknown) as Product[]) ?? [];
 
     // Both extra columns are optional. select("*") omits a column that doesn't
@@ -130,6 +157,24 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
 
   const catName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const shopName = useMemo(() => new Map(shops.map((s) => [s.id, s.name])), [shops]);
+  /**
+   * "CONSTRUCTION MATERIALS CEMENT" per category, so a search for a parent name
+   * finds the products filed under its subcategories too.
+   */
+  const catSearchText = useMemo(
+    () => new Map(categories.map((c) => [c.id, categoryLabel(categories, c.id, " ")])),
+    [categories]
+  );
+
+  /**
+   * Opening a parent category shows its own products and everything filed under
+   * its subcategories; opening a subcategory shows just that branch. `null`
+   * means "All products", which is why it is not simply `{categoryId}`.
+   */
+  const categoryScope = useMemo(
+    () => (categoryId ? categoryScopeIds(categories, categoryId) : null),
+    [categories, categoryId]
+  );
 
   const counts = useMemo(() => {
     const m: Record<string, number> = {};
@@ -149,7 +194,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
     const terms = debouncedQuery ? debouncedQuery.split(/\s+/).filter(Boolean) : [];
     return products.filter((p) => {
       if (shopFilter && p.shop_id !== shopFilter) return false;
-      if (categoryId && p.category_id !== categoryId) return false;
+      if (categoryScope && (!p.category_id || !categoryScope.has(p.category_id))) return false;
       if (terms.length === 0) return true;
 
       const hay = [
@@ -158,7 +203,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
         p.description ?? "",
         p.notes ?? "",
         p.shop_id ? shopName.get(p.shop_id) ?? "" : "",
-        p.category_id ? catName.get(p.category_id) ?? "" : "",
+        p.category_id ? catSearchText.get(p.category_id) ?? "" : "",
         ...p.product_variants.flatMap((v) => [
           v.label,
           v.color_hex ?? "",
@@ -170,24 +215,53 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
 
       return terms.every((t) => hay.includes(t));
     });
-  }, [products, shopFilter, debouncedQuery, categoryId, shopName, catName]);
+  }, [products, shopFilter, debouncedQuery, categoryScope, shopName, catSearchText]);
 
   const openProduct = products.find((p) => p.id === openProductId) ?? null;
 
   // ---------- Categories ----------
   // Category names are stored uppercase; errors bubble up to the modal that called this.
+  //
+  // The tree has exactly two levels, so `parentId` is either null (a main
+  // category) or the id of a main category (a subcategory). The UI never offers
+  // a parent choice; this is the one write path and it refuses anything that
+  // would create a third level.
   // Returns the created row so callers (e.g. the product form) can select it.
-  async function addCategory(name: string): Promise<Category | null> {
+  async function addCategory(name: string, parentId: string | null = null): Promise<Category | null> {
     const upper = name.trim().toUpperCase();
-    const next = categories.reduce((m, c) => Math.max(m, c.sort_order), 0) + 1;
+    const parent = hasParentColumn ? parentId : null;
+
+    if (parent && !canCreateUnder(categories, parent)) {
+      throw new Error("Subcategories can only be added to a main category.");
+    }
+
+    // Same rule the dialog applies, re-checked here because this is the single
+    // write path for categories.
+    const duplicate = categories.some(
+      (c) => (c.parent_id ?? null) === parent && c.name.trim().toUpperCase() === upper
+    );
+    if (duplicate)
+      throw new Error(
+        parent ? `"${upper}" already exists in this category.` : `"${upper}" already exists.`
+      );
+
+    // Order within siblings, so a new subcategory lands at the bottom of its
+    // own branch instead of jumping around the tree.
+    const next =
+      categories
+        .filter((c) => (c.parent_id ?? null) === parent)
+        .reduce((m, c) => Math.max(m, c.sort_order), 0) + 1;
+
     const { data, error } = await supabase
       .from("categories")
-      .insert({ name: upper, sort_order: next })
+      .insert({ name: upper, sort_order: next, ...(hasParentColumn ? { parent_id: parent } : {}) })
       .select("id, name, sort_order")
       .single();
     if (error) throw new Error(error.message);
     await loadAll();
-    return (data as Category) ?? null;
+    flash(parent ? `Subcategory "${upper}" added.` : `Category "${upper}" added.`);
+    // The parent is known from the insert, so it does not need selecting.
+    return data ? ({ ...(data as Category), parent_id: parent } as Category) : null;
   }
 
   async function renameCategory(id: string, name: string) {
@@ -200,12 +274,30 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   async function confirmDeleteCategory() {
     if (!categoryToDelete) return;
     setBusy(true);
+
+    // Deleting a subcategory leaves the main category alone: only this row is
+    // removed, and the foreign key on `products.category_id` (`on delete set
+    // null`) files its products as Uncategorized — they are never deleted.
+    const affected = categoryScopeIds(categories, categoryToDelete.id);
+    // Where to stand afterwards: the parent main category of what was removed.
+    const fallback = mainOf(categories, categoryToDelete.id);
+    const nextSelection = fallback && fallback.id !== categoryToDelete.id ? fallback.id : null;
+
     const { error } = await supabase.from("categories").delete().eq("id", categoryToDelete.id);
     setBusy(false);
-    if (error) return flash(error.message);
-    if (categoryId === categoryToDelete.id) setCategoryId(null);
+    if (error) {
+      // Nothing changed, so nothing is announced as done.
+      return flash(error.message);
+    }
+
+    if (categoryId && affected.has(categoryId)) setCategoryId(nextSelection);
     setCategoryToDelete(null);
     await loadAll();
+    flash(
+      categoryToDelete.parent_id
+        ? `Subcategory "${categoryToDelete.name.toUpperCase()}" deleted.`
+        : `Category "${categoryToDelete.name.toUpperCase()}" deleted.`
+    );
   }
 
   // ---------- Shops ----------
@@ -456,6 +548,14 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   // Categories display uppercase everywhere (sidebar, dropdowns), so the search
   // scope does too — the stored name of older rows may be lowercase.
   const scopeName = categoryId ? (catName.get(categoryId) ?? "").toUpperCase() || null : null;
+  // Main category -> subcategory, shown above the heading. Never longer than
+  // two entries: the hierarchy has exactly two levels.
+  const trail = categoryId ? categoryPath(categories, categoryId) : [];
+  const selectedCategory = categoryId ? categories.find((c) => c.id === categoryId) ?? null : null;
+  // The create action follows the current context: a main category can gain a
+  // subcategory, a subcategory cannot gain anything.
+  const selectedIsMain = selectedCategory ? isMainCategory(categories, selectedCategory) : false;
+  const canAddSubcategory = Boolean(selectedCategory && selectedIsMain && hasParentColumn);
   const heading = debouncedQuery
     ? scopeName
       ? `"${query.trim()}" in ${scopeName}`
@@ -471,6 +571,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
         selectedId={categoryId}
         isAdmin={isAdmin}
         open={sidebarOpen}
+        parentEnabled={hasParentColumn}
         onSelect={setCategoryId}
         onClose={() => setSidebarOpen(false)}
         onAdd={addCategory}
@@ -478,8 +579,14 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
         onDelete={setCategoryToDelete}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* The page scrolls here rather than inside <main>, so the sticky navbar
+          can slide away over already-scrolled products with no reflow. */}
+      <div ref={scrollRef} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
         <Navbar
+          navRef={navRef}
+          hidden={navHidden}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
           query={query}
           onQuery={setQuery}
           searchScope={scopeName}
@@ -527,34 +634,75 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
           </div>
         )}
 
-        {/* No side gutter needed any more — the toggle lives in the page header. */}
-        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 xl:p-6">
+        {/* No side gutter needed — the sidebar toggle now lives in the navbar,
+            ahead of search. The scroll lives on the column above, so this is
+            plain content. */}
+        <main className="shrink-0 p-3 sm:p-4 lg:p-5 xl:p-6">
           <div className="mb-3 flex items-center justify-between gap-3 lg:mb-4">
-            <div className="flex min-w-0 items-center gap-2.5 lg:gap-3">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen((v) => !v)}
-                aria-label={sidebarOpen ? "Hide categories" : "Show categories"}
-                aria-expanded={sidebarOpen}
-                aria-controls="category-sidebar"
-                title={sidebarOpen ? "Hide categories" : "Show categories"}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-ink-line bg-surface text-ink transition-colors hover:border-ink-mist hover:bg-surface-alt active:bg-surface-alt lg:h-11 lg:w-11"
-              >
-                <Menu size={18} strokeWidth={1.9} />
-              </button>
-              <div className="min-w-0">
-                <h1
-                  className={`truncate font-display text-[22px] font-bold leading-none tracking-wide text-ink sm:text-2xl lg:text-[30px] ${
-                    debouncedQuery ? "" : "uppercase"
-                  }`}
+            <div className="min-w-0">
+              {trail.length > 0 && (
+                <nav
+                  aria-label="Breadcrumb"
+                  className="mb-1 flex min-w-0 items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint"
                 >
-                  {heading}
-                </h1>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryId(null)}
+                    className="shrink-0 transition-colors hover:text-ink hover:underline"
+                  >
+                    All products
+                  </button>
+                  {trail.map((c, i) => {
+                    const last = i === trail.length - 1;
+                    return (
+                      <span key={c.id} className="flex min-w-0 items-center gap-1">
+                        <span aria-hidden className="shrink-0 text-ink-mist">
+                          /
+                        </span>
+                        {last ? (
+                          <span className="truncate text-ink-soft">{c.name}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setCategoryId(c.id)}
+                            className="truncate transition-colors hover:text-ink hover:underline"
+                          >
+                            {c.name}
+                          </button>
+                        )}
+                      </span>
+                    );
+                  })}
+                </nav>
+              )}
+              <h1
+                className={`truncate font-display text-[22px] font-bold leading-none tracking-wide text-ink sm:text-2xl lg:text-[30px] ${
+                  debouncedQuery ? "" : "uppercase"
+                }`}
+              >
+                {heading}
+              </h1>
             </div>
-            <span className="shrink-0 text-xs font-medium text-ink-faint lg:text-sm">
-              {visible.length} {visible.length === 1 ? "item" : "items"}
-            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Context-aware, and never manual: All products adds a main
+                  category, a main category adds a subcategory, and a
+                  subcategory offers nothing (it cannot hold categories). */}
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded border border-ink-line bg-surface px-2 text-xs font-semibold text-ink transition-colors hover:border-ink-mist hover:bg-surface-alt sm:px-2.5"
+                  onClick={() => setCategoryModal({ parentId: canAddSubcategory ? categoryId : null })}
+                  aria-label={canAddSubcategory ? "Add subcategory" : "Add category"}
+                  title={canAddSubcategory ? "Add subcategory" : "Add category"}
+                >
+                  <Plus size={14} strokeWidth={2.4} />
+                  <span className="hidden sm:inline">{canAddSubcategory ? "Subcategory" : "Category"}</span>
+                </button>
+              )}
+              <span className="text-xs font-medium text-ink-faint lg:text-sm">
+                {visible.length} {visible.length === 1 ? "item" : "items"}
+              </span>
+            </div>
           </div>
 
           {loadError && (
@@ -618,6 +766,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
           product={openProduct}
           shop={openProduct.shop_id ? shops.find((s) => s.id === openProduct.shop_id) : undefined}
           category={openProduct.category_id ? categories.find((c) => c.id === openProduct.category_id) : undefined}
+          categoryPath={openProduct.category_id ? categoryPath(categories, openProduct.category_id) : []}
           isAdmin={isAdmin}
           onClose={() => setOpenProductId(null)}
           onEdit={() => setForm({ product: openProduct })}
@@ -633,6 +782,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
           shopCounts={shopCounts}
           defaultCategoryId={categoryId}
           codeEnabled={hasCodeColumn}
+          parentEnabled={hasParentColumn}
           onAddCategory={addCategory}
           onAddShop={createShop}
           onDeleteShop={deleteShop}
@@ -657,15 +807,45 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
 
       {categoryToDelete && (
         <ConfirmDialog
-          title="Delete category"
-          message={
-            (counts[categoryToDelete.id] ?? 0) > 0
-              ? `"${categoryToDelete.name.toUpperCase()}" has ${counts[categoryToDelete.id]} product(s). They will not be deleted; they become Uncategorized.`
-              : `Delete the category "${categoryToDelete.name.toUpperCase()}"?`
-          }
+          title={categoryToDelete.parent_id ? "Delete subcategory" : "Delete category"}
+          message={(() => {
+            // The exact name being removed is always stated.
+            const name = categoryToDelete.name.toUpperCase();
+            const branch = categoryScopeIds(categories, categoryToDelete.id);
+            const productCount = products.filter((p) => p.category_id && branch.has(p.category_id)).length;
+            // A subcategory has none; a main category can still be removed from
+            // edit mode, and its subcategories are then promoted, not deleted.
+            const childCount = categories.filter((c) => c.parent_id === categoryToDelete.id).length;
+
+            const parts = [
+              productCount > 0
+                ? `${productCount} product${productCount === 1 ? "" : "s"} will not be deleted; they become Uncategorized.`
+                : "",
+              childCount > 0
+                ? `${childCount} subcategor${childCount === 1 ? "y becomes a main category" : "ies become main categories"}.`
+                : "",
+            ].filter(Boolean);
+
+            const lead = categoryToDelete.parent_id
+              ? `Delete the subcategory "${name}"?`
+              : `Delete the main category "${name}"?`;
+
+            return parts.length > 0 ? `${lead} ${parts.join(" ")}` : lead;
+          })()}
           busy={busy}
           onConfirm={confirmDeleteCategory}
           onCancel={() => setCategoryToDelete(null)}
+        />
+      )}
+
+      {/* Opened from the page header. The parent comes from the current view and
+          is not selectable in the dialog. */}
+      {categoryModal && (
+        <CategoryModal
+          categories={categories}
+          parentId={categoryModal.parentId}
+          onSave={addCategory}
+          onClose={() => setCategoryModal(null)}
         />
       )}
 

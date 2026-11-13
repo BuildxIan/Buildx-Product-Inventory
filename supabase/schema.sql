@@ -4,9 +4,29 @@
 create table if not exists public.categories (
   id uuid primary key default gen_random_uuid(),
   name text not null,
+  -- null = top-level category; otherwise the category this one sits under.
+  -- Deleting a parent promotes its subcategories instead of deleting them.
+  parent_id uuid references public.categories(id) on delete set null,
   sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- Existing databases created before hierarchical categories: add it in place.
+alter table public.categories add column if not exists parent_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'categories_parent_id_fkey'
+      and conrelid = 'public.categories'::regclass
+  ) then
+    alter table public.categories
+      add constraint categories_parent_id_fkey
+      foreign key (parent_id) references public.categories(id) on delete set null;
+  end if;
+end $$;
 
 create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
@@ -52,6 +72,7 @@ create table if not exists public.product_variants (
 
 create index if not exists products_category_idx on public.products(category_id);
 create index if not exists products_shop_idx on public.products(shop_id);
+create index if not exists categories_parent_idx on public.categories(parent_id);
 create index if not exists product_images_product_idx on public.product_images(product_id);
 create index if not exists product_variants_product_idx on public.product_variants(product_id);
 

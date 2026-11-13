@@ -195,6 +195,39 @@
     @apply text-[10px] font-bold uppercase leading-none tracking-[0.14em] text-accent-deep;
   }
 
+  /* Delete control on a subcategory row. Subcategories are the only rows that
+     get one, so it stays quiet: always visible on touch, where there is no
+     hover, and revealed on hover/focus for pointer devices. */
+  .subcategory-delete {
+    opacity: 1;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .subcategory-delete {
+      opacity: 0;
+      /* Keeps the invisible control from being an accidental click target; the
+         row's hover state brings it back before it can be pressed. */
+      pointer-events: none;
+    }
+
+    .group:hover .subcategory-delete,
+    .group:focus-within .subcategory-delete,
+    .subcategory-delete:focus-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* Phones and small tablets: no hover to rely on, so the control is simply
+     there. Declared after the hover rules so it also wins in a narrow desktop
+     window, where showing it is harmless. */
+  @media (max-width: 767px) {
+    .subcategory-delete {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
   .card-surface {
     @apply rounded-md border border-ink-line bg-surface;
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Plus, Search, Trash2, X } from "lucide-react";
+import { LogOut, Menu, Plus, Search, Trash2, X } from "lucide-react";
 import type { Shop } from "@/lib/types";
 import ShopFilter from "./ShopFilter";
 import ThemeToggle from "./ThemeToggle";
@@ -26,6 +26,16 @@ type Props = {
   onAdd: () => void;
   isAdmin: boolean;
   onLogout: () => void;
+  /**
+   * Phones only: slid out of the way because the reader is scrolling down.
+   * The desktop bar ignores this — it never changes position.
+   */
+  hidden?: boolean;
+  /** Lets the page measure/hold the bar (see useNavAutoHide). */
+  navRef?: React.Ref<HTMLElement>;
+  /** Sidebar drawer (phone) / rail (desktop) state — drives the toggle's label. */
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 };
 
 export default function Navbar({
@@ -44,6 +54,10 @@ export default function Navbar({
   onAdd,
   isAdmin,
   onLogout,
+  hidden = false,
+  navRef,
+  sidebarOpen,
+  onToggleSidebar,
 }: Props) {
   // Every visitor is signed in (see middleware), so the only guard left is for
   // the brief moment before the session state settles.
@@ -64,8 +78,31 @@ export default function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-20 border-b border-ink-line bg-surface shadow-[0_2px_10px_-8px_rgba(17,37,56,0.45)]">
+    <header
+      ref={navRef}
+      // Sticky inside the page's scroll column: translating it up reveals the
+      // products already scrolled underneath, so hiding it shifts no layout.
+      // `md:translate-y-0` keeps the desktop bar exactly where it has always been.
+      className={`sticky top-0 z-20 border-b border-ink-line bg-surface shadow-[0_2px_10px_-8px_rgba(17,37,56,0.45)] transition-transform duration-300 ease-smooth md:translate-y-0 ${
+        hidden ? "-translate-y-full" : "translate-y-0"
+      }`}
+    >
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 sm:px-3 lg:gap-3 lg:px-5 lg:py-3">
+        {/* First control in the bar, on every breakpoint: categories come
+            before search. Sized like its neighbours (h-9 / lg:h-11) so the row
+            stays on one baseline. */}
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={sidebarOpen ? "Hide categories" : "Show categories"}
+          aria-expanded={sidebarOpen}
+          aria-controls="category-sidebar"
+          title={sidebarOpen ? "Hide categories" : "Show categories"}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded border border-ink-line bg-surface text-ink transition-colors hover:border-ink-mist hover:bg-surface-alt active:bg-surface-alt lg:h-11 lg:w-11"
+        >
+          <Menu size={18} strokeWidth={1.9} />
+        </button>
+
         <div className="relative min-w-0 flex-1">
           <Search
             size={16}

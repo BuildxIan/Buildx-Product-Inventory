@@ -12,6 +12,8 @@ type Props = {
   product: Product;
   shop?: Shop;
   category?: Category;
+  /** Root -> leaf chain of the product's category, e.g. ["CONSTRUCTION MATERIALS", "CEMENT"]. */
+  categoryPath?: Category[];
   isAdmin: boolean;
   onClose: () => void;
   onEdit: () => void;
@@ -44,11 +46,24 @@ function InfoRow({
   );
 }
 
-export default function ProductModal({ product, shop, category, isAdmin, onClose, onEdit, onDelete }: Props) {
+export default function ProductModal({
+  product,
+  shop,
+  category,
+  categoryPath,
+  isAdmin,
+  onClose,
+  onEdit,
+  onDelete,
+}: Props) {
   const images = [...product.product_images].sort((a, b) => a.position - b.position);
   const variants = [...product.product_variants].sort((a, b) => a.position - b.position);
   const [idx, setIdx] = useState(0);
   const [showDownload, setShowDownload] = useState(false);
+
+  // A subcategory is only meaningful with its parent in view, so the row reads
+  // "CONSTRUCTION MATERIALS / CEMENT" while the export keeps the leaf name.
+  const categoryLine = categoryPath?.length ? categoryPath.map((c) => c.name).join(" / ") : category?.name;
 
   return (
     <Modal onClose={onClose} wide mobileFullScreen>
@@ -108,7 +123,7 @@ export default function ProductModal({ product, shop, category, isAdmin, onClose
             {/* Fixed reading order: name, price, product code, category, shop. */}
             <dl className="mt-4 divide-y divide-ink-line/70 border-y border-ink-line">
               <InfoRow label="Product code" value={product.code?.trim() || "Not set"} mono />
-              <InfoRow label="Category" value={category?.name || "Uncategorized"} upper />
+              <InfoRow label="Category" value={categoryLine || "Uncategorized"} upper />
               <InfoRow label="Shop" value={shop?.name || "No shop"} />
             </dl>
           </div>

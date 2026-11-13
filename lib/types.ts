@@ -1,4 +1,14 @@
-export type Category = { id: string; name: string; sort_order: number };
+export type Category = {
+  id: string;
+  name: string;
+  sort_order: number;
+  /**
+   * The parent category this one sits under (migration 003). Optional because
+   * the app also runs against a database that has not added the column yet —
+   * a missing value simply means "top-level".
+   */
+  parent_id?: string | null;
+};
 export type Shop = { id: string; name: string };
 
 export type ProductImage = {
