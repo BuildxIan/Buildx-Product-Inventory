@@ -122,8 +122,19 @@ export default function Sidebar({
     setAddParent({ parentId });
   }
 
+  /**
+   * `min-w-0` is what lets a row shrink inside its flex parent. A flex item's
+   * automatic minimum size is its content's min-content width, and the label
+   * is `nowrap`, so a long category name used to floor the button at its full
+   * `w-full` width — which pushed the sibling delete control past the rail's
+   * edge, where `overflow-y-auto` (computed `overflow-x: auto`) clipped it.
+   * Allowing the row to shrink hands the excess to the label's `truncate`
+   * instead, so the delete control always keeps its place. In the "All
+   * products" row the parent is a block, not a flex container, so this is
+   * inert there and `w-full` still spans the rail.
+   */
   const rowBase =
-    "relative flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm transition-colors duration-150 lg:gap-2.5 lg:px-3.5 lg:py-2.5 lg:text-[15px]";
+    "relative flex w-full min-w-0 items-center gap-2 rounded px-3 py-2 text-left text-sm transition-colors duration-150 lg:gap-2.5 lg:px-3.5 lg:py-2.5 lg:text-[15px]";
 
   const closeOnMobile = () => {
     if (window.innerWidth < 768) onClose();
