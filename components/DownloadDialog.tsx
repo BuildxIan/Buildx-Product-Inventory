@@ -11,6 +11,8 @@ type Props = {
   product: Product;
   categoryName?: string | null;
   shopName?: string | null;
+  /** The shop's contact number, already formatted — omitted when it has none. */
+  shopMobile?: string | null;
   /** Photo currently open in the gallery, so the card shows what you're looking at. */
   selectedImageId?: string | null;
   onClose: () => void;
@@ -22,7 +24,14 @@ type Task = "photos" | "details" | null;
  * Two separate downloads, deliberately not merged: the stored photos are the
  * real files, while the details card is generated artwork.
  */
-export default function DownloadDialog({ product, categoryName, shopName, selectedImageId, onClose }: Props) {
+export default function DownloadDialog({
+  product,
+  categoryName,
+  shopName,
+  shopMobile,
+  selectedImageId,
+  onClose,
+}: Props) {
   const [task, setTask] = useState<Task>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -60,6 +69,7 @@ export default function DownloadDialog({ product, categoryName, shopName, select
         product,
         categoryName,
         shopName,
+        shopMobile,
         imageId: selectedImageId,
       });
       saveBlob(blob, filename);
@@ -121,8 +131,8 @@ export default function DownloadDialog({ product, categoryName, shopName, select
             <div className="min-w-0 flex-1">
               <h3 className="text-sm font-bold text-ink">Product details image</h3>
               <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-soft">
-                Shareable PNG with the photo you are viewing, plus the price, code, category, shop and
-                variations.
+                Shareable PNG with the photo you are viewing, plus the price, code, category, shop
+                contact details and variations.
               </p>
             </div>
           </div>

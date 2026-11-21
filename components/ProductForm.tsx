@@ -37,10 +37,12 @@ type Props = {
   codeEnabled: boolean;
   /** False until `categories.parent_id` exists — the dialog then only offers top-level categories. */
   parentEnabled: boolean;
+  /** False until `shops.mobile` exists — the shop dialog then disables the number field. */
+  mobileEnabled: boolean;
   /** Creates a category (uppercased, duplicate-checked) and returns it. */
   onAddCategory: (name: string, parentId?: string | null) => Promise<Category | null>;
-  /** Creates a shop (trimmed, duplicate-checked) and returns it. */
-  onAddShop: (name: string) => Promise<Shop | null>;
+  /** Creates a shop (trimmed, duplicate-checked) with an optional contact number. */
+  onAddShop: (name: string, mobile?: string) => Promise<Shop | null>;
   /** Deletes a shop after moving its products to `reassignTo` (null = none). */
   onDeleteShop: (shop: Shop, reassignTo: string | null) => Promise<void>;
   onSubmit: (values: FormValues) => Promise<void>;
@@ -55,6 +57,7 @@ export default function ProductForm({
   defaultCategoryId,
   codeEnabled,
   parentEnabled,
+  mobileEnabled,
   onAddCategory,
   onAddShop,
   onDeleteShop,
@@ -354,8 +357,9 @@ export default function ProductForm({
       {showNewShop && (
         <ShopModal
           shops={shops}
-          onSave={async (name) => {
-            const created = await onAddShop(name);
+          mobileEnabled={mobileEnabled}
+          onSave={async (name, mobile) => {
+            const created = await onAddShop(name, mobile);
             if (created) setShopChoice(created.id);
             return created;
           }}

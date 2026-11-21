@@ -31,8 +31,14 @@ end $$;
 create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
   name text not null unique,
+  -- Contact number for the shop, shown on every product of that shop.
+  -- Stored once here, never copied onto products (see migration 004).
+  mobile text,
   created_at timestamptz not null default now()
 );
+
+-- Existing databases created before shop contact numbers: add it in place.
+alter table public.shops add column if not exists mobile text;
 
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),

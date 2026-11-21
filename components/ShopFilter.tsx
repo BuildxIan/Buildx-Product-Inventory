@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, Plus, Store, X } from "lucide-react";
+import { Check, ChevronDown, Pencil, Plus, Store, X } from "lucide-react";
 import type { Shop } from "@/lib/types";
 
 type Props = {
@@ -14,13 +14,15 @@ type Props = {
   isAdmin: boolean;
   /** Opens the delete confirmation. The dropdown deliberately stays open. */
   onDelete: (shop: Shop) => void;
+  /** Opens the shop's settings (name and contact number). */
+  onEdit: (shop: Shop) => void;
   onAdd: () => void;
 };
 
 /**
- * Custom shop filter. A native <select> can't hold a delete button per option,
- * so this renders its own list: one row per shop with an X on the right, plus
- * an "Add new shop" action at the bottom.
+ * Custom shop filter. A native <select> can't hold buttons per option, so this
+ * renders its own list: one row per shop with a pencil (shop settings) and an X
+ * (delete) on the right, plus an "Add new shop" action at the bottom.
  */
 export default function ShopFilter({
   shops,
@@ -30,6 +32,7 @@ export default function ShopFilter({
   onChange,
   isAdmin,
   onDelete,
+  onEdit,
   onAdd,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -128,6 +131,26 @@ export default function ShopFilter({
                       {counts[s.id] ?? 0}
                     </span>
                   </button>
+
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded text-ink-faint transition-colors hover:bg-surface-alt hover:text-ink sm:h-9 sm:w-9"
+                      // Same guard as the delete button: the row must not be
+                      // selected, and the list stays open behind the dialog.
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onEdit(s);
+                      }}
+                      aria-label={`Settings for ${s.name}`}
+                      title={`Settings for ${s.name}`}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                  )}
 
                   {isAdmin && (
                     <button

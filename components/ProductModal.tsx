@@ -7,6 +7,7 @@ import DownloadDialog from "./DownloadDialog";
 import type { Product, Shop, Category } from "@/lib/types";
 import { imageUrl } from "@/lib/supabase";
 import { formatPeso } from "@/lib/format";
+import { shopMobileDisplay, telHref } from "@/lib/phone";
 
 type Props = {
   product: Product;
@@ -26,21 +27,30 @@ function InfoRow({
   value,
   mono,
   upper,
+  href,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   upper?: boolean;
+  /** Makes the value tappable — used for the shop's `tel:` number. */
+  href?: string;
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 py-2">
       <dt className="shrink-0 text-[10px] font-bold uppercase tracking-[0.14em] text-ink-faint">{label}</dt>
       <dd
-        className={`min-w-0 truncate text-right text-[13px] text-ink ${mono ? "font-mono font-semibold" : "font-medium"} ${
-          upper ? "uppercase" : ""
-        }`}
+        className={`min-w-0 truncate text-right text-[13px] ${
+          mono ? "font-mono font-semibold" : "font-medium"
+        } ${upper ? "uppercase" : ""} ${href ? "text-accent-deep" : "text-ink"}`}
       >
-        {value}
+        {href ? (
+          <a href={href} className="underline-offset-2 hover:underline">
+            {value}
+          </a>
+        ) : (
+          value
+        )}
       </dd>
     </div>
   );
@@ -64,6 +74,12 @@ export default function ProductModal({
   // A subcategory is only meaningful with its parent in view, so the row reads
   // "CONSTRUCTION MATERIALS / CEMENT" while the export keeps the leaf name.
   const categoryLine = categoryPath?.length ? categoryPath.map((c) => c.name).join(" / ") : category?.name;
+
+  // The shop owns the number; the product only points at the shop. Editing the
+  // shop's settings therefore changes this row on every product of that shop at
+  // once. `null` means the shop has no number, so no row is rendered at all.
+  const shopMobile = shopMobileDisplay(shop);
+  const shopMobileLink = telHref(shop?.mobile);
 
   return (
     <Modal onClose={onClose} wide mobileFullScreen>
@@ -120,11 +136,15 @@ export default function ProductModal({
               {formatPeso(product.price)}
             </p>
 
-            {/* Fixed reading order: name, price, product code, category, shop. */}
+            {/* Fixed reading order: name, price, product code, category, shop,
+                then the shop's contact number when it has one. */}
             <dl className="mt-4 divide-y divide-ink-line/70 border-y border-ink-line">
               <InfoRow label="Product code" value={product.code?.trim() || "Not set"} mono />
               <InfoRow label="Category" value={categoryLine || "Uncategorized"} upper />
               <InfoRow label="Shop" value={shop?.name || "No shop"} />
+              {shopMobile && (
+                <InfoRow label="Mobile" value={shopMobile} href={shopMobileLink || undefined} />
+              )}
             </dl>
           </div>
 
@@ -189,6 +209,7 @@ export default function ProductModal({
           product={product}
           categoryName={category?.name}
           shopName={shop?.name}
+          shopMobile={shopMobile}
           // The gallery's current index, not the stored cover photo.
           selectedImageId={images[idx]?.id}
           onClose={() => setShowDownload(false)}

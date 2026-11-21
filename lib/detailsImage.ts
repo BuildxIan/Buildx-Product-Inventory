@@ -164,6 +164,8 @@ export type DetailsImageInput = {
   product: Product;
   categoryName?: string | null;
   shopName?: string | null;
+  /** The shop's contact number, already formatted — omitted when it has none. */
+  shopMobile?: string | null;
   /** id of the photo currently open in the gallery — not always the first one. */
   imageId?: string | null;
 };
@@ -172,12 +174,14 @@ export type DetailsImageResult = { blob: Blob; filename: string };
 
 /**
  * Renders the shareable product card: the selected photo, name, price, code,
- * category, shop and every variation, in the BuildX palette.
+ * category, shop, the shop's contact number when it has one, and every
+ * variation, in the BuildX palette.
  */
 export async function buildDetailsPng({
   product,
   categoryName,
   shopName,
+  shopMobile,
   imageId,
 }: DetailsImageInput): Promise<DetailsImageResult> {
   if (typeof document === "undefined") throw new Error("This runs in the browser only.");
@@ -196,8 +200,26 @@ export async function buildDetailsPng({
   ctx.font = font(46, 700);
   const nameLines = wrapLines(ctx, product.name, W - 128, 2);
   const variants = [...product.product_variants].sort((a, b) => a.position - b.position);
+
+  // The rows are built before anything is measured: the contact row only exists
+  // when the shop has a number, so the card reserves exactly the height it needs
+  // and never leaves a gap where a missing number would have been.
+  const rows: { label: string; value: string }[] = [
+    { label: "PRODUCT CODE", value: product.code?.trim() || "Not set" },
+    { label: "CATEGORY", value: (categoryName || "Uncategorized").toUpperCase() },
+    { label: "SHOP", value: shopName || "No shop" },
+    ...(shopMobile ? [{ label: "MOBILE", value: shopMobile }] : []),
+  ];
+
   const detailsH =
-    26 + nameLines.length * 52 + 14 + 62 + 10 + 150 + 14 + (variants.length > 0 ? 64 : 0);
+    26 +
+    nameLines.length * 52 +
+    14 +
+    62 +
+    10 +
+    rows.length * 50 +
+    14 +
+    (variants.length > 0 ? 64 : 0);
   const photoH = Math.min(PHOTO_MAX_H, Math.max(PHOTO_MIN_H, H - HEADER_H - 42 - detailsH - 40));
 
   // Page
@@ -280,12 +302,6 @@ export async function buildDetailsPng({
   ctx.lineTo(right, y + 0.5);
   ctx.stroke();
   y += 10;
-
-  const rows: { label: string; value: string }[] = [
-    { label: "PRODUCT CODE", value: product.code?.trim() || "Not set" },
-    { label: "CATEGORY", value: (categoryName || "Uncategorized").toUpperCase() },
-    { label: "SHOP", value: shopName || "No shop" },
-  ];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];

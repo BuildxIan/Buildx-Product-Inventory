@@ -6,6 +6,7 @@ import { supabase, isConfigured, BUCKET } from "@/lib/supabase";
 import { compressImage, originalExtension } from "@/lib/image";
 import type { Category, Product, Shop } from "@/lib/types";
 import { canCreateUnder, categoryLabel, categoryPath, categoryScopeIds, isMainCategory, mainOf } from "@/lib/categories";
+import { normalizeMobile } from "@/lib/phone";
 import { useNavAutoHide } from "@/lib/useNavAutoHide";
 import { useEdgeSwipe } from "@/lib/useEdgeSwipe";
 import Sidebar from "./Sidebar";
@@ -32,6 +33,8 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   const [hasOriginalColumn, setHasOriginalColumn] = useState(false);
   /** False until `categories.parent_id` exists — subcategories then stay unavailable. */
   const [hasParentColumn, setHasParentColumn] = useState(false);
+  /** False until `shops.mobile` exists — shops then save without a contact number. */
+  const [hasMobileColumn, setHasMobileColumn] = useState(false);
 
   // Seeded from the server render, so admin controls never flicker on load.
   const [authed, setAuthed] = useState(initialAuthed);
@@ -53,6 +56,8 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   /** Which parent the header's category dialog opens with: null = top level. */
   const [categoryModal, setCategoryModal] = useState<{ parentId: string | null } | null>(null);
   const [showShopModal, setShowShopModal] = useState(false);
+  /** A shop whose settings (name, contact number) are being edited. */
+  const [shopToEdit, setShopToEdit] = useState<Shop | null>(null);
   const [shopToDelete, setShopToDelete] = useState<Shop | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -108,7 +113,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
       setLoading(false);
       return;
     }
-    const [c, s, p, parentProbe] = await Promise.all([
+    const [c, s, p, parentProbe, mobileProbe] = await Promise.all([
       supabase.from("categories").select("*").order("sort_order").order("created_at"),
       supabase.from("shops").select("*").order("name"),
       supabase
@@ -118,11 +123,15 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
       // One cheap probe for the hierarchy column. An empty table answers with
       // no error, so only a missing column reports one.
       supabase.from("categories").select("parent_id").limit(1),
+      // Same probe for the shop contact number. `select("*")` above already
+      // returns it when it exists, so this only decides whether writes include it.
+      supabase.from("shops").select("mobile").limit(1),
     ]);
     const err = c.error || s.error || p.error;
     if (err) setLoadError(err.message);
     else setLoadError("");
     setHasParentColumn(!parentProbe.error);
+    setHasMobileColumn(!mobileProbe.error);
     const rows = ((p.data as unknown) as Product[]) ?? [];
 
     // Both extra columns are optional. select("*") omits a column that doesn't
@@ -303,12 +312,16 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
   // ---------- Shops ----------
   // One creation path for both the header dropdown and the product form. It
   // only writes the row and reloads; selecting the result is the caller's job.
-  async function createShop(name: string): Promise<Shop | null> {
+  async function createShop(name: string, mobile = ""): Promise<Shop | null> {
     const clean = name.trim().replace(/\s+/g, " ");
     const { data, error } = await supabase
       .from("shops")
-      .insert({ name: clean })
-      .select("id, name")
+      .insert({
+        name: clean,
+        // Written only once the column exists, so an older database still saves.
+        ...(hasMobileColumn ? { mobile: normalizeMobile(mobile) || null } : {}),
+      })
+      .select("*")
       .single();
     if (error) throw new Error(error.message);
 
@@ -318,9 +331,32 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
     return created;
   }
 
+  /**
+   * Saves a shop's name and contact number.
+   *
+   * The number is written to the shop and nowhere else. Every product of that
+   * shop resolves its number through `shop_id`, so the reload below *is* the
+   * "apply to all products" step: no product row is touched, and editing this
+   * number again later updates every one of them again.
+   */
+  async function updateShop(shop: Shop, name: string, mobile: string) {
+    const clean = name.trim().replace(/\s+/g, " ");
+    const { error } = await supabase
+      .from("shops")
+      .update({
+        name: clean,
+        ...(hasMobileColumn ? { mobile: normalizeMobile(mobile) || null } : {}),
+      })
+      .eq("id", shop.id);
+    if (error) throw new Error(error.message);
+
+    await loadAll();
+    flash(`Shop "${clean}" updated.`);
+  }
+
   /** Header flow: after creating, filter the catalog by the new shop. */
-  async function addShopFromHeader(name: string): Promise<Shop | null> {
-    const created = await createShop(name);
+  async function addShopFromHeader(name: string, mobile = ""): Promise<Shop | null> {
+    const created = await createShop(name, mobile);
     if (created) setShopFilter(created.id);
     return created;
   }
@@ -596,6 +632,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
           shopFilter={shopFilter}
           onShopFilter={setShopFilter}
           onDeleteShop={setShopToDelete}
+          onEditShop={setShopToEdit}
           onAddShop={() => setShowShopModal(true)}
           mode={mode}
           onMode={changeMode}
@@ -783,6 +820,7 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
           defaultCategoryId={categoryId}
           codeEnabled={hasCodeColumn}
           parentEnabled={hasParentColumn}
+          mobileEnabled={hasMobileColumn}
           onAddCategory={addCategory}
           onAddShop={createShop}
           onDeleteShop={deleteShop}
@@ -850,7 +888,27 @@ export default function CatalogApp({ initialAuthed }: { initialAuthed: boolean }
       )}
 
       {showShopModal && (
-        <ShopModal shops={shops} onSave={addShopFromHeader} onClose={() => setShowShopModal(false)} />
+        <ShopModal
+          shops={shops}
+          mobileEnabled={hasMobileColumn}
+          onSave={addShopFromHeader}
+          onClose={() => setShowShopModal(false)}
+        />
+      )}
+
+      {/* Shop settings, opened from the header dropdown's pencil. Saving here
+          changes the number on every product of this shop. */}
+      {shopToEdit && (
+        <ShopModal
+          shop={shopToEdit}
+          shops={shops}
+          mobileEnabled={hasMobileColumn}
+          onSave={async (name, mobile) => {
+            await updateShop(shopToEdit, name, mobile);
+            return null;
+          }}
+          onClose={() => setShopToEdit(null)}
+        />
       )}
 
       {shopToDelete && (

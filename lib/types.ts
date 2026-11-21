@@ -9,7 +9,16 @@ export type Category = {
    */
   parent_id?: string | null;
 };
-export type Shop = { id: string; name: string };
+export type Shop = {
+  id: string;
+  name: string;
+  /**
+   * Contact number for the shop (migration 004). Stored once, on the shop, and
+   * resolved by every product of that shop — never copied onto a product row.
+   * Optional because the app also runs against a database without the column.
+   */
+  mobile?: string | null;
+};
 
 export type ProductImage = {
   id: string;

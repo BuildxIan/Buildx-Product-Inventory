@@ -20,6 +20,8 @@ type Props = {
   shopFilter: string;
   onShopFilter: (id: string) => void;
   onDeleteShop: (shop: Shop) => void;
+  /** Opens a shop's settings — its name and contact number. */
+  onEditShop: (shop: Shop) => void;
   onAddShop: () => void;
   mode: Mode;
   onMode: (m: Mode) => void;
@@ -48,6 +50,7 @@ export default function Navbar({
   shopFilter,
   onShopFilter,
   onDeleteShop,
+  onEditShop,
   onAddShop,
   mode,
   onMode,
@@ -74,6 +77,7 @@ export default function Navbar({
     onChange: onShopFilter,
     isAdmin,
     onDelete: onDeleteShop,
+    onEdit: onEditShop,
     onAdd: onAddShop,
   };
 
